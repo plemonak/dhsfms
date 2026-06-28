@@ -1,5 +1,6 @@
 import type { Employee, EvidenceDocument, PpeIssue, Site, TrainingSession, Vehicle } from '../types/models';
 import { documents, employees, ppeIssues, sites, trainings, vehicles } from '../data/mockData';
+import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
 
 export interface IDataProvider {
   getSites(): Promise<Site[]>;
@@ -10,10 +11,20 @@ export interface IDataProvider {
   getTrainings(siteId?: number): Promise<TrainingSession[]>;
   getDocuments(entityType?: EvidenceDocument['entityType'], entityId?: number): Promise<EvidenceDocument[]>;
   getPpeIssues(employeeId?: number): Promise<PpeIssue[]>;
+  createTrainingRecord(payload: Record<string, unknown>): Promise<{ id?: number; status: string }>;
+  triggerTrainingPdf(input: { trainingSessionId: number; trainingTitle: string; trainerName: string; trainerSignature: string; participantsJson: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
+  extractDocumentText(file: File): Promise<{ text: string; confidence: number }>;
+  captureSignature(payload: { signerName: string; documentId: string }): Promise<{ signatureUrl: string; status: 'pending' | 'completed' }>;
+  generateQr(payload: string): Promise<{ qrUrl: string; payload: string }>;
 }
 
 export class MockDataProvider implements IDataProvider {
   private employeeStore = [...employees];
+  private sharePointAdapter = new SharePointAdapter();
+  private flowAdapter = new FlowAdapter();
+  private ocrAdapter = new OcrAdapter();
+  private signatureAdapter = new SignatureAdapter();
+  private qrAdapter = new QrAdapter();
 
   async getSites(): Promise<Site[]> {
     return sites;
@@ -51,6 +62,26 @@ export class MockDataProvider implements IDataProvider {
 
   async getPpeIssues(employeeId?: number): Promise<PpeIssue[]> {
     return employeeId ? ppeIssues.filter(p => p.employeeId === employeeId) : ppeIssues;
+  }
+
+  async createTrainingRecord(payload: Record<string, unknown>) {
+    return this.sharePointAdapter.createListItem({ listName: 'TrainingSessions', item: payload });
+  }
+
+  async triggerTrainingPdf(input: { trainingSessionId: number; trainingTitle: string; trainerName: string; trainerSignature: string; participantsJson: string; pdfFileName: string }) {
+    return this.flowAdapter.triggerTrainingPdf(input);
+  }
+
+  async extractDocumentText(file: File) {
+    return this.ocrAdapter.extractText(file);
+  }
+
+  async captureSignature(payload: { signerName: string; documentId: string }) {
+    return this.signatureAdapter.captureSignature(payload);
+  }
+
+  async generateQr(payload: string) {
+    return this.qrAdapter.generateQr(payload);
   }
 }
 

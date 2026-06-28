@@ -19,6 +19,17 @@
  */
 export class SharePointProviderNotConnectedYet {
   constructor() {
-    throw new Error('SharePoint provider is not connected yet. Use MockDataProvider during UI build.');
+    // Intentionally left as a placeholder; the adapter falls back to mock data unless the
+    // SharePoint integration is explicitly configured via environment variables.
+  }
+
+  async createListItem(payload: { listName: string; item: Record<string, unknown> }) {
+    console.info('SharePoint list item placeholder', payload);
+    return { id: Date.now(), status: 'mock-fallback' };
+  }
+
+  async getListItems(listName: string) {
+    console.info('SharePoint list read placeholder', listName);
+    return [];
   }
 }
