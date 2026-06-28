@@ -1,4 +1,4 @@
-import type { AppUser, Employee, EvidenceDocument, PpeIssue, Site, TrainingSession, Vehicle } from '../types/models';
+import type { AppUser, Employee, EvidenceDocument, PpeIssue, ProjectStaffMember, Site, TrainingSession, Vehicle } from '../types/models';
 
 export const currentUser: AppUser = {
   displayName: 'Panagiotis Lemonakis',
@@ -18,6 +18,12 @@ export const employees: Employee[] = [
   { id: 2, employeeNo: 'DYKAT-002', firstName: 'Παναγιώτης', lastName: 'Λεμονάκης', fullName: 'Λεμονάκης Παναγιώτης', company: 'DYKAT', personType: 'DYKAT employee', position: 'HSE Manager', siteId: 2, status: 'Active', email: 'plemonak@gmail.com' },
   { id: 3, employeeNo: 'SUB-001', firstName: 'Αντώνιος', lastName: 'Παπαδόπουλος', fullName: 'Παπαδόπουλος Αντώνιος', company: 'LLESHI', contractor: 'LLESHI', personType: 'Subcontractor', position: 'Εναερίτης', siteId: 1, status: 'Pending' },
   { id: 4, employeeNo: 'DYKAT-003', firstName: 'Μιχάλης', lastName: 'Γεωργίου', fullName: 'Γεωργίου Μιχάλης', company: 'DYKAT', personType: 'DYKAT employee', position: 'Ηλεκτρολόγος ΜΤ', siteId: 1, status: 'Active' },
+];
+
+export const projectStaff: ProjectStaffMember[] = [
+  { id: 1, displayName: 'Παναγιώτης Λεμονάκης', title: 'HSE Manager', responsibleName: 'Παναγιώτης Λεμονάκης' },
+  { id: 2, displayName: 'Μαρία Κωνσταντίνου', title: 'Site Supervisor', responsibleName: 'Μαρία Κωνσταντίνου' },
+  { id: 3, displayName: 'Νίκος Καραλής', title: 'Foreman', responsibleName: 'Νίκος Καραλής' },
 ];
 
 export const vehicles: Vehicle[] = [

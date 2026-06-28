@@ -40,20 +40,75 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrPayload, setQrPayload] = useState('');
   const [qrUrl, setQrUrl] = useState('');
+  const [projectStaff, setProjectStaff] = useState<Array<{ id: number; displayName: string; responsibleName?: string; title?: string }>>([]);
+  const [selectedTrainerId, setSelectedTrainerId] = useState<number | null>(null);
+  const [trainingMaterialUrl, setTrainingMaterialUrl] = useState('https://example.com/training-material.pdf');
+  const [trainingStatus, setTrainingStatus] = useState<'Εκκρεμής' | 'Ολοκληρωμένη'>('Εκκρεμής');
+  const [trainingPdfUrl, setTrainingPdfUrl] = useState<string | null>(null);
+  const [traineeSignedIds, setTraineeSignedIds] = useState<number[]>([]);
+  const [ppeWorkflowOpen, setPpeWorkflowOpen] = useState(false);
+  const [selectedPpeItems, setSelectedPpeItems] = useState<string[]>([]);
+  const [ppePdfUrl, setPpePdfUrl] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveTrainingTab('new');
     setTopic('Εισαγωγική Εκπαίδευση');
     setTrainerName(employee.fullName);
+    setSelectedTrainerId(null);
     setSelectedTraineeIds([employee.id]);
     setAttendanceReady(false);
     setSelectedHistoryId(null);
-  }, [employee.id]);
+    setTrainingStatus('Εκκρεμής');
+    setTrainingPdfUrl(null);
+    setTraineeSignedIds([employee.id]);
+    void dataProvider.getProjectStaff(employee.siteId).then(setProjectStaff);
+  }, [employee.id, employee.siteId]);
 
   const selectedHistoryItem = employeeTrainings.find(item => item.id === selectedHistoryId) ?? employeeTrainings[0];
 
   function toggleTrainee(id: number) {
     setSelectedTraineeIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
+  }
+
+  function togglePpeItem(item: string) {
+    setSelectedPpeItems(current => current.includes(item) ? current.filter(entry => entry !== item) : [...current, item]);
+  }
+
+  function toggleTraineeSignature(id: number) {
+    setTraineeSignedIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
+  }
+
+  async function saveTrainingWorkflow() {
+    if (!employee) return;
+    const nextStatus = traineeSignedIds.length >= selectedTraineeIds.length ? 'Ολοκληρωμένη' : 'Εκκρεμής';
+    setTrainingStatus(nextStatus);
+    if (trainingSignature) {
+      const result = await dataProvider.triggerTrainingPdf({
+        trainingSessionId: employee.id,
+        trainingTitle: topic,
+        trainerName: trainerName,
+        trainerSignature: trainingSignature,
+        participantsJson: JSON.stringify(selectedTraineeIds),
+        pdfFileName: `${employee.employeeNo}-${topic}.pdf`,
+      });
+      setTrainingPdfUrl(result.pdfUrl);
+    }
+    setActiveTrainingTab('history');
+  }
+
+  async function savePpeWorkflow() {
+    if (!employee) return;
+    if (!selectedPpeItems.length || !ppeSignature) return;
+    const result = await dataProvider.generatePpeIssuePdf({
+      employeeId: employee.id,
+      employeeName: employee.fullName,
+      issueDate: new Date().toISOString().slice(0, 10),
+      issuedBy: trainerName,
+      siteName: 'Εργοτάξιο demo',
+      pdfFileName: `${employee.employeeNo}-ppe.pdf`,
+    });
+    setPpePdfUrl(result.pdfUrl);
+    setPpeWorkflowOpen(false);
   }
 
   async function openEmployeeQr() {
@@ -97,7 +152,23 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
         <div className="card-pad">
           {activeTab === 'ppe' && (
             <>
-              <button className="primary-btn"><FilePlus2 size={17} />Νέα χορήγηση ΜΑΠ</button>
+              <button className="primary-btn" type="button" onClick={() => setPpeWorkflowOpen(prev => !prev)}><FilePlus2 size={17} />Νέα χορήγηση ΜΑΠ</button>
+              {ppeWorkflowOpen && (
+                <div className="card card-pad" style={{ marginTop: 12 }}>
+                  <div className="section-title">Επιλογή ΜΑΠ</div>
+                  {['Κράνος', 'Γυαλιά προστασίας', 'Μάσκα', 'Γάντια'].map(item => (
+                    <label key={item} className="training-chip" style={{ display: 'flex', marginTop: 8 }}>
+                      <input type="checkbox" checked={selectedPpeItems.includes(item)} onChange={() => togglePpeItem(item)} />
+                      <span>{item}</span>
+                    </label>
+                  ))}
+                  <div style={{ marginTop: 12 }}>
+                    <SignaturePad signer={employee.fullName} title="Υπογραφή εκδότη" subtitle="Υπογραφή για τη χορήγηση ΜΑΠ" documentId={`ppe-issuer-${employee.id}`} onSignatureCaptured={({ signatureData }) => setPpeSignature(signatureData)} />
+                  </div>
+                  <button className="primary-btn" type="button" style={{ marginTop: 12 }} onClick={() => void savePpeWorkflow()} disabled={!selectedPpeItems.length || !ppeSignature}>Αποθήκευση και PDF</button>
+                  {ppePdfUrl && <div className="row-subtitle" style={{ marginTop: 8 }}>Το signed PPE PDF είναι έτοιμο: {ppePdfUrl}</div>}
+                </div>
+              )}
               <div style={{ marginTop: 12 }}>
                 {ppeIssues.map(issue => <div className="row" key={issue.id}><div className="row-main"><div className="row-title">Χορήγηση ΜΑΠ #{issue.id}</div><div className="row-subtitle">{issue.issueDate} · Εκδόθηκε από {issue.issuedBy}</div></div><StatusBadge status={issue.status} /></div>)}
               </div>
@@ -131,7 +202,23 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
                     </div>
                     <div className="field" style={{ marginTop: 12 }}>
                       <label className="field-label" htmlFor="trainer-name">Εκπαιδευτής / υπεύθυνος</label>
-                      <input id="trainer-name" className="field-input" value={trainerName} onChange={event => setTrainerName(event.target.value)} />
+                      <select id="trainer-name" className="field-select" value={selectedTrainerId ?? ''} onChange={event => {
+                        const nextId = Number(event.target.value);
+                        const selectedPerson = projectStaff.find(person => person.id === nextId);
+                        setSelectedTrainerId(nextId || null);
+                        setTrainerName(selectedPerson?.responsibleName ?? selectedPerson?.displayName ?? employee.fullName);
+                      }}>
+                        <option value="">Επιλέξτε υπεύθυνο</option>
+                        {projectStaff.map(person => <option key={person.id} value={person.id}>{person.displayName} {person.title ? `· ${person.title}` : ''}</option>)}
+                      </select>
+                    </div>
+                    <div className="field" style={{ marginTop: 12 }}>
+                      <label className="field-label" htmlFor="training-topic">Θέμα εκπαίδευσης</label>
+                      <input id="training-topic" className="field-input" value={topic} onChange={event => setTopic(event.target.value)} />
+                    </div>
+                    <div className="field" style={{ marginTop: 12 }}>
+                      <div className="field-label">Σχετικό υλικό εκπαίδευσης</div>
+                      <a href={trainingMaterialUrl} target="_blank" rel="noreferrer">Άνοιγμα TrainingMaterial PDF</a>
                     </div>
                     <div className="field" style={{ marginTop: 12 }}>
                       <div className="field-label">Εκπαιδευόμενοι</div>
@@ -144,7 +231,7 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
                         ))}
                       </div>
                     </div>
-                    <button className="primary-btn" style={{ marginTop: 14 }} onClick={() => setActiveTrainingTab('signatures')}><FilePlus2 size={17} />Αποθήκευση προσχέδιου</button>
+                    <button className="primary-btn" style={{ marginTop: 14 }} onClick={() => { setActiveTrainingTab('signatures'); setTrainingStatus('Εκκρεμής'); }}><FilePlus2 size={17} />Αποθήκευση προσχέδιου</button>
                   </div>
                   <div className="card card-pad">
                     <div className="section-title">Προεπισκόπηση</div>
@@ -184,7 +271,7 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
                         onSignatureCaptured={({ signatureData }) => setTrainingSignature(signatureData)}
                       />
                     </div>
-                    <button className="primary-btn" style={{ marginTop: 14 }} onClick={() => { setAttendanceReady(true); setActiveTrainingTab('attendance'); }}><FilePlus2 size={17} />Δημιουργία παρουσιολογίου PDF</button>
+                    <button className="primary-btn" style={{ marginTop: 14 }} onClick={() => { setAttendanceReady(true); void saveTrainingWorkflow(); }}><FilePlus2 size={17} />Δημιουργία παρουσιολογίου PDF</button>
                   </div>
                   <div className="card card-pad">
                     <div className="section-title">Επόμενο βήμα</div>
@@ -198,7 +285,7 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
                 employeeTrainings.length === 0 ? <EmptyState title="Δεν υπάρχουν καταγεγραμμένες εκπαιδεύσεις." subtitle="Η ιστορικότητα για τον επιλεγμένο εργαζόμενο θα εμφανιστεί εδώ." /> : (
                   <div className="training-list">
                     {employeeTrainings.map(training => (
-                      <div className="training-item clickable" key={training.id} onClick={() => { setSelectedHistoryId(training.id); setActiveTrainingTab('attendance'); }}>
+                      <div className="training-item clickable" key={training.id} onClick={() => { setSelectedHistoryId(training.id); setActiveTrainingTab('attendance'); window.open(training.pdfUrl ?? '#', '_blank', 'noopener,noreferrer'); }}>
                         <div className="training-item-title">{training.title}</div>
                         <div className="training-item-meta">
                           <div><strong>Ημερομηνία:</strong> {training.date}</div>

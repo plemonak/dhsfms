@@ -1,5 +1,5 @@
-import type { Employee, EvidenceDocument, PpeIssue, Site, TrainingSession, Vehicle } from '../types/models';
-import { documents, employees, ppeIssues, sites, trainings, vehicles } from '../data/mockData';
+import type { Employee, EvidenceDocument, PpeIssue, ProjectStaffMember, Site, TrainingSession, Vehicle } from '../types/models';
+import { documents, employees, ppeIssues, projectStaff, sites, trainings, vehicles } from '../data/mockData';
 import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
 import { integrationConfig } from './integrationConfig';
 
@@ -7,6 +7,7 @@ export interface IDataProvider {
   getSites(): Promise<Site[]>;
   getEmployees(siteId?: number): Promise<Employee[]>;
   getEmployee(id: number): Promise<Employee | undefined>;
+  getProjectStaff(siteId?: number): Promise<ProjectStaffMember[]>;
   createEmployee(employee: Omit<Employee, 'id' | 'fullName'>): Promise<Employee>;
   getVehicles(siteId?: number): Promise<Vehicle[]>;
   getTrainings(siteId?: number): Promise<TrainingSession[]>;
@@ -14,6 +15,8 @@ export interface IDataProvider {
   getPpeIssues(employeeId?: number): Promise<PpeIssue[]>;
   createTrainingRecord(payload: Record<string, unknown>): Promise<{ id?: number; status: string }>;
   triggerTrainingPdf(input: { trainingSessionId: number; trainingTitle: string; trainerName: string; trainerSignature: string; participantsJson: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
+  generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
+  generateEquipmentAssignmentPdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
   extractDocumentText(file: File): Promise<{ text: string; confidence: number }>;
   captureSignature(payload: { signerName: string; documentId: string }): Promise<{ signatureUrl: string; status: 'pending' | 'completed' }>;
   generateQr(payload: string): Promise<{ qrUrl: string; payload: string }>;
@@ -52,6 +55,11 @@ export class MockDataProvider implements IDataProvider {
   async getEmployee(id: number): Promise<Employee | undefined> {
     const employeesFromSharePoint = await this.readSharePointList<Employee>(integrationConfig.sharePointLists.employees, this.employeeStore);
     return employeesFromSharePoint.find(e => e.id === id) ?? this.employeeStore.find(e => e.id === id);
+  }
+
+  async getProjectStaff(siteId?: number): Promise<ProjectStaffMember[]> {
+    const projectStaffFromSharePoint = await this.readSharePointList<ProjectStaffMember>(integrationConfig.sharePointLists.projectStaff, projectStaff);
+    return siteId ? projectStaffFromSharePoint.filter(person => person.id !== 0) : projectStaffFromSharePoint;
   }
 
   async createEmployee(employee: Omit<Employee, 'id' | 'fullName'>): Promise<Employee> {
@@ -104,6 +112,14 @@ export class MockDataProvider implements IDataProvider {
 
   async triggerTrainingPdf(input: { trainingSessionId: number; trainingTitle: string; trainerName: string; trainerSignature: string; participantsJson: string; pdfFileName: string }) {
     return this.flowAdapter.triggerTrainingPdf(input);
+  }
+
+  async generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }) {
+    return this.flowAdapter.generatePpeIssuePdf(input);
+  }
+
+  async generateEquipmentAssignmentPdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }) {
+    return this.flowAdapter.generateEquipmentAssignmentPdf(input);
   }
 
   async extractDocumentText(file: File) {
