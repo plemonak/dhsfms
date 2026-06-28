@@ -1,4 +1,5 @@
 import { ArrowLeft, FilePlus2, PenSquare } from 'lucide-react';
+import type { EquipmentItem, PpeCatalogItem, TrainingTopic } from '../types/models';
 import { useEffect, useState } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
@@ -41,14 +42,23 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
   const [qrPayload, setQrPayload] = useState('');
   const [qrUrl, setQrUrl] = useState('');
   const [projectStaff, setProjectStaff] = useState<Array<{ id: number; displayName: string; responsibleName?: string; title?: string }>>([]);
+  const [trainingTopics, setTrainingTopics] = useState<TrainingTopic[]>([]);
+  const [ppeCatalog, setPpeCatalog] = useState<PpeCatalogItem[]>([]);
+  const [equipmentCatalog, setEquipmentCatalog] = useState<EquipmentItem[]>([]);
   const [selectedTrainerId, setSelectedTrainerId] = useState<number | null>(null);
   const [trainingMaterialUrl, setTrainingMaterialUrl] = useState('https://example.com/training-material.pdf');
   const [trainingStatus, setTrainingStatus] = useState<'Εκκρεμής' | 'Ολοκληρωμένη'>('Εκκρεμής');
   const [trainingPdfUrl, setTrainingPdfUrl] = useState<string | null>(null);
   const [traineeSignedIds, setTraineeSignedIds] = useState<number[]>([]);
   const [ppeWorkflowOpen, setPpeWorkflowOpen] = useState(false);
-  const [selectedPpeItems, setSelectedPpeItems] = useState<string[]>([]);
+  const [selectedPpeItems, setSelectedPpeItems] = useState<number[]>([]);
   const [ppePdfUrl, setPpePdfUrl] = useState<string | null>(null);
+  const [equipmentWorkflowOpen, setEquipmentWorkflowOpen] = useState(false);
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState<number | null>(null);
+  const [equipmentIssueDate, setEquipmentIssueDate] = useState(new Date().toISOString().slice(0, 10));
+  const [equipmentAssignmentPdfUrl, setEquipmentAssignmentPdfUrl] = useState<string | null>(null);
+  const [equipmentIssuerSignature, setEquipmentIssuerSignature] = useState<string | null>(null);
+  const [employeeSignature, setEmployeeSignature] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveTrainingTab('new');
@@ -62,6 +72,9 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
     setTrainingPdfUrl(null);
     setTraineeSignedIds([employee.id]);
     void dataProvider.getProjectStaff(employee.siteId).then(setProjectStaff);
+    void dataProvider.getTrainingTopics().then(setTrainingTopics);
+    void dataProvider.getPpeCatalog().then(setPpeCatalog);
+    void dataProvider.getEquipmentCatalog(employee.siteId).then(setEquipmentCatalog);
   }, [employee.id, employee.siteId]);
 
   const selectedHistoryItem = employeeTrainings.find(item => item.id === selectedHistoryId) ?? employeeTrainings[0];
@@ -70,8 +83,8 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
     setSelectedTraineeIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
   }
 
-  function togglePpeItem(item: string) {
-    setSelectedPpeItems(current => current.includes(item) ? current.filter(entry => entry !== item) : [...current, item]);
+  function togglePpeItem(itemId: number) {
+    setSelectedPpeItems(current => current.includes(itemId) ? current.filter(entry => entry !== itemId) : [...current, itemId]);
   }
 
   function toggleTraineeSignature(id: number) {
@@ -96,9 +109,26 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
     setActiveTrainingTab('history');
   }
 
+  async function saveTrainingDraft() {
+    if (!employee) return;
+    await dataProvider.createTrainingRecord({
+      id: Date.now(),
+      title: topic,
+      date: new Date().toISOString().slice(0, 10),
+      trainerName: trainerName,
+      siteId: employee.siteId,
+      participantIds: selectedTraineeIds,
+      status: 'Draft',
+      pdfUrl: trainingMaterialUrl,
+    });
+    setActiveTrainingTab('signatures');
+    setTrainingStatus('Εκκρεμής');
+  }
+
   async function savePpeWorkflow() {
     if (!employee) return;
     if (!selectedPpeItems.length || !ppeSignature) return;
+    const selectedItems = ppeCatalog.filter(item => selectedPpeItems.includes(item.id));
     const result = await dataProvider.generatePpeIssuePdf({
       employeeId: employee.id,
       employeeName: employee.fullName,
@@ -109,6 +139,21 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
     });
     setPpePdfUrl(result.pdfUrl);
     setPpeWorkflowOpen(false);
+    console.info('PPE issue saved for catalog items', selectedItems.map(item => item.ppeType));
+  }
+
+  async function saveEquipmentAssignment() {
+    if (!employee || !selectedEquipmentId || !equipmentIssuerSignature || !employeeSignature) return;
+    const result = await dataProvider.generateEquipmentAssignmentPdf({
+      employeeId: employee.id,
+      employeeName: employee.fullName,
+      issueDate: equipmentIssueDate,
+      issuedBy: trainerName,
+      siteName: 'Εργοτάξιο demo',
+      pdfFileName: `${employee.employeeNo}-equipment-assignment.pdf`,
+    });
+    setEquipmentAssignmentPdfUrl(result.pdfUrl);
+    setEquipmentWorkflowOpen(false);
   }
 
   async function openEmployeeQr() {
@@ -153,20 +198,48 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
           {activeTab === 'ppe' && (
             <>
               <button className="primary-btn" type="button" onClick={() => setPpeWorkflowOpen(prev => !prev)}><FilePlus2 size={17} />Νέα χορήγηση ΜΑΠ</button>
+              <button className="primary-btn" type="button" style={{ marginLeft: 8 }} onClick={() => setEquipmentWorkflowOpen(prev => !prev)}><FilePlus2 size={17} />+ Νέα Χρέωση Εξοπλισμού</button>
               {ppeWorkflowOpen && (
                 <div className="card card-pad" style={{ marginTop: 12 }}>
                   <div className="section-title">Επιλογή ΜΑΠ</div>
-                  {['Κράνος', 'Γυαλιά προστασίας', 'Μάσκα', 'Γάντια'].map(item => (
-                    <label key={item} className="training-chip" style={{ display: 'flex', marginTop: 8 }}>
-                      <input type="checkbox" checked={selectedPpeItems.includes(item)} onChange={() => togglePpeItem(item)} />
-                      <span>{item}</span>
-                    </label>
+                  {ppeCatalog.map(item => (
+                    <div key={item.id} className="card card-pad" style={{ marginTop: 8 }}>
+                      <label className="training-chip" style={{ display: 'flex', alignItems: 'center' }}>
+                        <input type="checkbox" checked={selectedPpeItems.includes(item.id)} onChange={() => togglePpeItem(item.id)} />
+                        <span>{item.ppeType} · {item.model} · {item.size}</span>
+                      </label>
+                      <div className="row-subtitle" style={{ marginTop: 6 }}>EN: {item.enCertification} · Qty: {item.quantity} · Notes: {item.notes}</div>
+                    </div>
                   ))}
                   <div style={{ marginTop: 12 }}>
                     <SignaturePad signer={employee.fullName} title="Υπογραφή εκδότη" subtitle="Υπογραφή για τη χορήγηση ΜΑΠ" documentId={`ppe-issuer-${employee.id}`} onSignatureCaptured={({ signatureData }) => setPpeSignature(signatureData)} />
                   </div>
                   <button className="primary-btn" type="button" style={{ marginTop: 12 }} onClick={() => void savePpeWorkflow()} disabled={!selectedPpeItems.length || !ppeSignature}>Αποθήκευση και PDF</button>
                   {ppePdfUrl && <div className="row-subtitle" style={{ marginTop: 8 }}>Το signed PPE PDF είναι έτοιμο: {ppePdfUrl}</div>}
+                </div>
+              )}
+              {equipmentWorkflowOpen && (
+                <div className="card card-pad" style={{ marginTop: 12 }}>
+                  <div className="section-title">Νέα χρέωση εξοπλισμού</div>
+                  <div className="field" style={{ marginTop: 12 }}>
+                    <label className="field-label" htmlFor="equipment-select">Εξοπλισμός</label>
+                    <select id="equipment-select" className="field-select" value={selectedEquipmentId ?? ''} onChange={event => setSelectedEquipmentId(Number(event.target.value) || null)}>
+                      <option value="">Επιλέξτε εξοπλισμό</option>
+                      {equipmentCatalog.map(item => <option key={item.id} value={item.id}>{item.name} · {item.serial}</option>)}
+                    </select>
+                  </div>
+                  <div className="field" style={{ marginTop: 12 }}>
+                    <label className="field-label" htmlFor="equipment-issue-date">Ημερομηνία χρέωσης</label>
+                    <input id="equipment-issue-date" className="field-input" type="date" value={equipmentIssueDate} onChange={event => setEquipmentIssueDate(event.target.value)} />
+                  </div>
+                  <div style={{ marginTop: 12 }}>
+                    <SignaturePad signer={employee.fullName} title="Υπογραφή εκδότη" subtitle="Υπογραφή για τη χρέωση εξοπλισμού" documentId={`equipment-issuer-${employee.id}`} onSignatureCaptured={({ signatureData }) => setEquipmentIssuerSignature(signatureData)} />
+                  </div>
+                  <div style={{ marginTop: 12 }}>
+                    <SignaturePad signer={employee.fullName} title="Υπογραφή εργαζομένου" subtitle="Υπογραφή για τη χρέωση εξοπλισμού" documentId={`equipment-employee-${employee.id}`} onSignatureCaptured={({ signatureData }) => setEmployeeSignature(signatureData)} />
+                  </div>
+                  <button className="primary-btn" type="button" style={{ marginTop: 12 }} onClick={() => void saveEquipmentAssignment()} disabled={!selectedEquipmentId || !equipmentIssuerSignature || !employeeSignature}>Αποθήκευση και PDF</button>
+                  {equipmentAssignmentPdfUrl && <div className="row-subtitle" style={{ marginTop: 8 }}>Το signed equipment assignment PDF είναι έτοιμο: {equipmentAssignmentPdfUrl}</div>}
                 </div>
               )}
               <div style={{ marginTop: 12 }}>
@@ -198,7 +271,14 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
                   <div className="card card-pad">
                     <div className="field">
                       <label className="field-label" htmlFor="training-topic">Θέμα εκπαίδευσης</label>
-                      <input id="training-topic" className="field-input" value={topic} onChange={event => setTopic(event.target.value)} />
+                      <select id="training-topic" className="field-select" value={topic} onChange={event => {
+                        const selectedTopic = trainingTopics.find(item => item.title === event.target.value);
+                        setTopic(event.target.value);
+                        setTrainingMaterialUrl(selectedTopic?.materialUrl ?? 'https://example.com/training-material.pdf');
+                      }}>
+                        <option value="">Επιλέξτε θέμα</option>
+                        {trainingTopics.map(item => <option key={item.id} value={item.title}>{item.title}</option>)}
+                      </select>
                     </div>
                     <div className="field" style={{ marginTop: 12 }}>
                       <label className="field-label" htmlFor="trainer-name">Εκπαιδευτής / υπεύθυνος</label>
@@ -209,12 +289,8 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
                         setTrainerName(selectedPerson?.responsibleName ?? selectedPerson?.displayName ?? employee.fullName);
                       }}>
                         <option value="">Επιλέξτε υπεύθυνο</option>
-                        {projectStaff.map(person => <option key={person.id} value={person.id}>{person.displayName} {person.title ? `· ${person.title}` : ''}</option>)}
+                        {projectStaff.map(person => <option key={person.id} value={person.id}>{person.responsibleName ?? person.displayName}</option>)}
                       </select>
-                    </div>
-                    <div className="field" style={{ marginTop: 12 }}>
-                      <label className="field-label" htmlFor="training-topic">Θέμα εκπαίδευσης</label>
-                      <input id="training-topic" className="field-input" value={topic} onChange={event => setTopic(event.target.value)} />
                     </div>
                     <div className="field" style={{ marginTop: 12 }}>
                       <div className="field-label">Σχετικό υλικό εκπαίδευσης</div>
@@ -231,7 +307,7 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
                         ))}
                       </div>
                     </div>
-                    <button className="primary-btn" style={{ marginTop: 14 }} onClick={() => { setActiveTrainingTab('signatures'); setTrainingStatus('Εκκρεμής'); }}><FilePlus2 size={17} />Αποθήκευση προσχέδιου</button>
+                    <button className="primary-btn" style={{ marginTop: 14 }} onClick={() => { void saveTrainingDraft(); }}><FilePlus2 size={17} />Αποθήκευση προσχέδιου</button>
                   </div>
                   <div className="card card-pad">
                     <div className="section-title">Προεπισκόπηση</div>

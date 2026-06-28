@@ -49,6 +49,7 @@ export function EmployeeFormPage({ onBack, onSave }: Props) {
   const [ocrPreviewUrl, setOcrPreviewUrl] = useState<string | null>(null);
   const [ocrStatus, setOcrStatus] = useState('');
   const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrExtractedFields, setOcrExtractedFields] = useState<string[]>([]);
   const ocrInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -77,6 +78,17 @@ export function EmployeeFormPage({ onBack, onSave }: Props) {
     const gender = extract('Φύλο') || extract('Gender');
     const issuingAuthority = extract('Αρχή έκδοσης') || extract('Issued by') || extract('Authority');
 
+    const extractedFields = [
+      lastName ? `Επώνυμο: ${lastName}` : null,
+      firstName ? `Όνομα: ${firstName}` : null,
+      fatherName ? `Πατρώνυμο: ${fatherName}` : null,
+      birthDate ? `Γέννηση: ${birthDate}` : null,
+      idOrTaxNo ? `ΑΔΤ/ΑΦΜ: ${idOrTaxNo}` : null,
+      gender ? `Φύλο: ${gender}` : null,
+      issuingAuthority ? `Αρχή έκδοσης: ${issuingAuthority}` : null,
+    ].filter(Boolean) as string[];
+    setOcrExtractedFields(extractedFields);
+
     setForm(prev => ({
       ...prev,
       firstName: firstName || prev.firstName,
@@ -94,6 +106,7 @@ export function EmployeeFormPage({ onBack, onSave }: Props) {
 
     setOcrLoading(true);
     setOcrStatus('');
+    setOcrExtractedFields([]);
 
     try {
       const result = await dataProvider.extractDocumentText(file);
@@ -145,7 +158,16 @@ export function EmployeeFormPage({ onBack, onSave }: Props) {
             <div style={{ gridColumn: '1 / -1' }}>
               <button className="primary-btn" type="button" onClick={() => ocrInputRef.current?.click()} disabled={ocrLoading}><Camera size={17} />{ocrLoading ? 'Αναζήτηση OCR…' : 'Έναρξη OCR'}</button>
               {ocrFileName && <div className="row-subtitle" style={{ marginTop: 8 }}>Αρχείο: {ocrFileName}</div>}
+              {ocrLoading && <div className="row-subtitle" style={{ marginTop: 8 }}>Αναζήτηση OCR…</div>}
               {ocrStatus && <div className="row-subtitle" style={{ marginTop: 8 }}>{ocrStatus}</div>}
+              {ocrExtractedFields.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <div className="row-subtitle">Αναγνωρισμένα πεδία για έλεγχο</div>
+                  <ul style={{ margin: '6px 0 0 16px', color: 'var(--dh-muted)' }}>
+                    {ocrExtractedFields.map(field => <li key={field}>{field}</li>)}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
         </SectionCard>

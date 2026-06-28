@@ -30,6 +30,7 @@ export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγρα
   const [ocrStatus, setOcrStatus] = useState('');
   const [ocrSummary, setOcrSummary] = useState('');
   const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrExtractedFields, setOcrExtractedFields] = useState<string[]>([]);
   const [ocrDocumentType, setOcrDocumentType] = useState('');
   const [ocrFieldSuggestions, setOcrFieldSuggestions] = useState<string[]>([]);
   const [qrModalOpen, setQrModalOpen] = useState(false);
@@ -177,6 +178,7 @@ export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγρα
     setOcrStatus('');
     setOcrSummary('');
     setOcrFieldSuggestions([]);
+    setOcrExtractedFields([]);
 
     try {
       const result = await dataProvider.extractDocumentText(file);
@@ -187,14 +189,17 @@ export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγρα
         .slice(0, 4)
         .join(' · ');
       const suggestions = getFieldSuggestions(ocrDocumentType, text);
+      const extractedFields = text.split(/\n|\s{2,}/).filter(Boolean).slice(0, 6);
       setOcrSummary(preview || 'Δεν βρέθηκαν στοιχεία για προεπισκόπηση.');
       setOcrFieldSuggestions(suggestions);
+      setOcrExtractedFields(extractedFields);
       setOcrStatus(result.confidence > 0.2 ? 'Το OCR ολοκληρώθηκε και τα στοιχεία είναι έτοιμα για έλεγχο.' : 'Ενεργοποιήθηκε mock OCR fallback.');
     } catch (error) {
       console.warn('OCR failed for generic list page.', error);
       const suggestions = getFieldSuggestions(ocrDocumentType, 'Mock fallback OCR');
       setOcrSummary('Mock fallback OCR: η ανάλυση είναι έτοιμη για έλεγχο χωρίς αυτόματη αποθήκευση.');
       setOcrFieldSuggestions(suggestions);
+      setOcrExtractedFields(['Μοκ OCR fallback', 'Προσοχή: έλεγχος πεδίων πριν την αποθήκευση']);
       setOcrStatus('Δεν ήταν δυνατή η πραγματική επεξεργασία OCR.');
     } finally {
       setOcrLoading(false);
@@ -230,6 +235,14 @@ export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγρα
         {ocrPreviewUrl && <img src={ocrPreviewUrl} alt="OCR preview" style={{ marginTop: 12, maxWidth: '100%', maxHeight: 220, objectFit: 'contain', border: '1px solid var(--dh-line)', borderRadius: 10 }} />}
         {ocrStatus && <div className="row-subtitle" style={{ marginTop: 10 }}>{ocrStatus}</div>}
         {ocrSummary && <div className="row-subtitle" style={{ marginTop: 6 }}>Αποτέλεσμα: {ocrSummary}</div>}
+        {ocrExtractedFields.length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <div className="row-subtitle">Πεδία που αναγνωρίστηκαν από το OCR</div>
+            <ul style={{ margin: '6px 0 0 16px', color: 'var(--dh-muted)' }}>
+              {ocrExtractedFields.map(field => <li key={field}>{field}</li>)}
+            </ul>
+          </div>
+        )}
         {ocrFieldSuggestions.length > 0 && (
           <div style={{ marginTop: 10 }}>
             <div className="row-subtitle">Προτεινόμενα πεδία για έλεγχο</div>

@@ -77,7 +77,7 @@ export default function App() {
       case 'contractors':
         return <GenericListPage title="Υπεργολάβοι" subtitle="Εταιρείες, έγκριση και στοιχεία επικοινωνίας" addLabel="Νέος υπεργολάβος" />;
       case 'smart-docs':
-        return <EvidencePage title="Smart Document Capture" subtitle="Demo OCR, review πεδίων και τεκμήρια" />;
+        return <GenericListPage title="Smart Docs" subtitle="Κεντρική περιοχή έξυπνης αρχειοθέτησης εγγράφων, αυτόματης ταξινόμησης, OCR metadata και σύνδεσης εγγράφων με εργαζόμενο, όχημα, εξοπλισμό ή εργοτάξιο." addLabel="Νέο έγγραφο" showOcrSection={false} rows={[]} emptyTitle="Μη ακόμη ενεργό" />;
       case 'qr':
         return <QrPage />;
       case 'settings':
