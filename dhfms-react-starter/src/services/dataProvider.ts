@@ -1,6 +1,7 @@
 import type { Employee, EvidenceDocument, PpeIssue, Site, TrainingSession, Vehicle } from '../types/models';
 import { documents, employees, ppeIssues, sites, trainings, vehicles } from '../data/mockData';
 import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
+import { integrationConfig } from './integrationConfig';
 
 export interface IDataProvider {
   getSites(): Promise<Site[]>;
@@ -26,16 +27,31 @@ export class MockDataProvider implements IDataProvider {
   private signatureAdapter = new SignatureAdapter();
   private qrAdapter = new QrAdapter();
 
+  private async readSharePointList<T>(listName: string, fallback: T[]): Promise<T[]> {
+    try {
+      const items = await this.sharePointAdapter.getListItems(listName);
+      if (Array.isArray(items) && items.length > 0) {
+        return items as T[];
+      }
+    } catch (error) {
+      console.warn('SharePoint read failed, falling back to mock data.', error);
+    }
+    return fallback;
+  }
+
   async getSites(): Promise<Site[]> {
-    return sites;
+    return this.readSharePointList<Site>(integrationConfig.sharePointLists.sites, sites);
   }
 
   async getEmployees(siteId?: number): Promise<Employee[]> {
-    return siteId ? this.employeeStore.filter(e => e.siteId === siteId) : this.employeeStore;
+    const employeesFromSharePoint = await this.readSharePointList<Employee>(integrationConfig.sharePointLists.employees, this.employeeStore);
+    const filtered = siteId ? employeesFromSharePoint.filter(e => e.siteId === siteId) : employeesFromSharePoint;
+    return filtered.length > 0 ? filtered : this.employeeStore.filter(e => (siteId ? e.siteId === siteId : true));
   }
 
   async getEmployee(id: number): Promise<Employee | undefined> {
-    return this.employeeStore.find(e => e.id === id);
+    const employeesFromSharePoint = await this.readSharePointList<Employee>(integrationConfig.sharePointLists.employees, this.employeeStore);
+    return employeesFromSharePoint.find(e => e.id === id) ?? this.employeeStore.find(e => e.id === id);
   }
 
   async createEmployee(employee: Omit<Employee, 'id' | 'fullName'>): Promise<Employee> {
@@ -44,28 +60,46 @@ export class MockDataProvider implements IDataProvider {
       id: Math.max(...this.employeeStore.map(e => e.id)) + 1,
       fullName: `${employee.lastName} ${employee.firstName}`.trim(),
     };
+
+    const createdRemote = await this.sharePointAdapter.createListItem({
+      listName: integrationConfig.sharePointLists.employees,
+      item: {
+        ...employee,
+        FullName: created.fullName,
+      },
+    });
+
+    if (createdRemote.status !== 'mock-fallback' && createdRemote.id) {
+      created.id = createdRemote.id;
+    }
+
     this.employeeStore = [created, ...this.employeeStore];
     return created;
   }
 
   async getVehicles(siteId?: number): Promise<Vehicle[]> {
-    return siteId ? vehicles.filter(v => v.siteId === siteId) : vehicles;
+    const vehiclesFromSharePoint = await this.readSharePointList<Vehicle>(integrationConfig.sharePointLists.vehicles, vehicles);
+    return siteId ? vehiclesFromSharePoint.filter(v => v.siteId === siteId) : vehiclesFromSharePoint;
   }
 
   async getTrainings(siteId?: number): Promise<TrainingSession[]> {
-    return siteId ? trainings.filter(t => t.siteId === siteId) : trainings;
+    const trainingsFromSharePoint = await this.readSharePointList<TrainingSession>(integrationConfig.sharePointLists.trainings, trainings);
+    return siteId ? trainingsFromSharePoint.filter(t => t.siteId === siteId) : trainingsFromSharePoint;
   }
 
   async getDocuments(entityType?: EvidenceDocument['entityType'], entityId?: number): Promise<EvidenceDocument[]> {
-    return documents.filter(d => (!entityType || d.entityType === entityType) && (!entityId || d.entityId === entityId));
+    const documentsFromSharePoint = await this.readSharePointList<EvidenceDocument>(integrationConfig.sharePointLists.medical, documents as EvidenceDocument[]);
+    const filtered = documentsFromSharePoint.filter(d => (!entityType || d.entityType === entityType) && (!entityId || d.entityId === entityId));
+    return filtered.length > 0 ? filtered : documents.filter(d => (!entityType || d.entityType === entityType) && (!entityId || d.entityId === entityId));
   }
 
   async getPpeIssues(employeeId?: number): Promise<PpeIssue[]> {
-    return employeeId ? ppeIssues.filter(p => p.employeeId === employeeId) : ppeIssues;
+    const ppeIssuesFromSharePoint = await this.readSharePointList<PpeIssue>(integrationConfig.sharePointLists.ppe, ppeIssues);
+    return employeeId ? ppeIssuesFromSharePoint.filter(p => p.employeeId === employeeId) : ppeIssuesFromSharePoint;
   }
 
   async createTrainingRecord(payload: Record<string, unknown>) {
-    return this.sharePointAdapter.createListItem({ listName: 'TrainingSessions', item: payload });
+    return this.sharePointAdapter.createListItem({ listName: integrationConfig.sharePointLists.trainings, item: payload });
   }
 
   async triggerTrainingPdf(input: { trainingSessionId: number; trainingTitle: string; trainerName: string; trainerSignature: string; participantsJson: string; pdfFileName: string }) {

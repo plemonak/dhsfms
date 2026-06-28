@@ -10,8 +10,11 @@ function readEnv(name: string): string | undefined {
 export const integrationConfig = {
   enableRealIntegrations: readEnv('VITE_ENABLE_REAL_INTEGRATIONS') === 'true',
   sharePointSiteUrl: readEnv('VITE_SHAREPOINT_SITE_URL'),
+  sharePointApiUrl: readEnv('VITE_SHAREPOINT_API_URL'),
+  sharePointAccessToken: readEnv('VITE_SHAREPOINT_ACCESS_TOKEN'),
   sharePointLists: {
     employees: readEnv('VITE_SHAREPOINT_LIST_EMPLOYEES') ?? 'Employees',
+    projectStaff: readEnv('VITE_SHAREPOINT_LIST_PROJECTSTAFF') ?? 'ProjectStaff',
     contractors: readEnv('VITE_SHAREPOINT_LIST_CONTRACTORS') ?? 'Contractors',
     sites: readEnv('VITE_SHAREPOINT_LIST_SITES') ?? 'Sites',
     trainings: readEnv('VITE_SHAREPOINT_LIST_TRAININGS') ?? 'TrainingSessions',
@@ -20,6 +23,7 @@ export const integrationConfig = {
     licenses: readEnv('VITE_SHAREPOINT_LIST_LICENSES') ?? 'EmployeeLicenses',
     ppe: readEnv('VITE_SHAREPOINT_LIST_PPE') ?? 'PPEIssuances',
     vehicles: readEnv('VITE_SHAREPOINT_LIST_VEHICLES') ?? 'Vehicles',
+    equipment: readEnv('VITE_SHAREPOINT_LIST_EQUIPMENT') ?? 'Equipment',
     assets: readEnv('VITE_SHAREPOINT_LIST_ASSETS') ?? 'Assets',
   },
   powerAutomateBaseUrl: readEnv('VITE_POWERAUTOMATE_BASE_URL'),
@@ -29,7 +33,7 @@ export const integrationConfig = {
 };
 
 export function isSharePointConfigured() {
-  return Boolean(integrationConfig.enableRealIntegrations && integrationConfig.sharePointSiteUrl);
+  return Boolean(integrationConfig.enableRealIntegrations && (integrationConfig.sharePointSiteUrl || integrationConfig.sharePointApiUrl));
 }
 
 export function isFlowConfigured() {

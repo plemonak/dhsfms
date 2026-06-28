@@ -1,6 +1,6 @@
 import { integrationConfig, isFlowConfigured, isSharePointConfigured } from './integrationConfig';
 import { generateTrainingPdf, uploadEvidence } from './flowClient';
-import { SharePointProviderNotConnectedYet } from './sharePointProvider';
+import { SharePointProvider } from './sharePointProvider';
 import { documents, trainings } from '../data/mockData';
 import type { EvidenceDocument, TrainingSession } from '../types/models';
 
@@ -30,7 +30,7 @@ export interface QrResult {
 }
 
 export class SharePointAdapter {
-  private provider = isSharePointConfigured() ? new SharePointProviderNotConnectedYet() : null;
+  private provider = isSharePointConfigured() ? new SharePointProvider() : null;
 
   async createListItem(payload: SharePointListItemPayload): Promise<{ id?: number; status: string }> {
     if (!this.provider) {
