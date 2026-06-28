@@ -3,6 +3,7 @@ import { createQrPrintPayload, generatePpeIssuePdf, generateTrainingAttendancePd
 import { SharePointProvider } from './sharePointProvider';
 import { documents, trainings } from '../data/mockData';
 import type { EvidenceDocument, TrainingSession } from '../types/models';
+import QRCode from 'qrcode';
 
 export interface SharePointListItemPayload {
   listName: string;
@@ -99,10 +100,20 @@ export class SignatureAdapter {
 
 export class QrAdapter {
   async generateQr(payload: string): Promise<QrResult> {
-    if (!integrationConfig.qrPrintEndpoint) {
+    try {
+      const qrUrl = await QRCode.toDataURL(payload, {
+        margin: 1,
+        width: 240,
+        color: {
+          dark: '#1A3A5C',
+          light: '#FFFFFF',
+        },
+      });
+      return { qrUrl, payload };
+    } catch (error) {
+      console.warn('QR generation failed, falling back to placeholder.', error);
       return { qrUrl: 'mock-qr-placeholder', payload };
     }
-    return { qrUrl: 'configured-qr-endpoint', payload };
   }
 
   async printQr(payload: string) {

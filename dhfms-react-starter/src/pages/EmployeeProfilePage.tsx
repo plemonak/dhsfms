@@ -5,6 +5,8 @@ import { PageHeader } from '../components/PageHeader';
 import { SectionCard } from '../components/SectionCard';
 import { SignaturePad } from '../components/SignaturePad';
 import { StatusBadge } from '../components/StatusBadge';
+import { QrPreviewModal } from '../components/QrPreviewModal';
+import { dataProvider } from '../services/dataProvider';
 import type { Employee, EvidenceDocument, PpeIssue, TrainingSession } from '../types/models';
 
 type TrainingWorkflowTab = 'new' | 'signatures' | 'history' | 'attendance';
@@ -35,6 +37,9 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
   const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
   const [ppeSignature, setPpeSignature] = useState<string | null>(null);
   const [trainingSignature, setTrainingSignature] = useState<string | null>(null);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrPayload, setQrPayload] = useState('');
+  const [qrUrl, setQrUrl] = useState('');
 
   useEffect(() => {
     setActiveTrainingTab('new');
@@ -51,12 +56,26 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
     setSelectedTraineeIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
   }
 
+  async function openEmployeeQr() {
+    if (!employee) return;
+    const payload = `EMP|${employee.id}|${employee.fullName}`;
+    const generated = await dataProvider.generateQr(payload);
+    setQrPayload(generated.payload);
+    setQrUrl(generated.qrUrl);
+    setQrModalOpen(true);
+  }
+
   return (
     <div className="page">
       <PageHeader
         title="Καρτέλα εργαζομένου"
         subtitle={employee.fullName}
-        actions={<button className="secondary-btn" onClick={onBack}><ArrowLeft size={17} />Πίσω</button>}
+        actions={(
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="secondary-btn" type="button" onClick={openEmployeeQr}>QR</button>
+            <button className="secondary-btn" onClick={onBack}><ArrowLeft size={17} />Πίσω</button>
+          </div>
+        )}
       />
 
       <div className="profile-hero">
@@ -230,6 +249,7 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
       <div className="footer-actions">
         <button className="secondary-btn" onClick={onEdit}><PenSquare size={17} />Επεξεργασία</button>
       </div>
+      <QrPreviewModal open={qrModalOpen} title={employee.fullName} subtitle="QR εργαζομένου για έλεγχο και εκτύπωση" payload={qrPayload} qrUrl={qrUrl} onClose={() => setQrModalOpen(false)} />
     </div>
   );
 }

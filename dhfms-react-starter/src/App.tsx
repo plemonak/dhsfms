@@ -69,9 +69,9 @@ export default function App() {
       case 'licenses':
         return <EvidencePage title="Άδειες / Πιστοποιήσεις" subtitle="Άδειες εργαζομένων, πιστοποιήσεις και λήξεις" />;
       case 'vehicles':
-        return <GenericListPage title="Οχήματα & Μηχανήματα" subtitle="Στόλος, έγγραφα, ασφάλειες, ΚΤΕΟ" addLabel="Νέο όχημα" rows={vehicles.map(v => ({ id: v.id, title: `${v.plate} · ${v.type}`, subtitle: `${v.code} · ${v.owner}`, status: v.status }))} />;
+        return <GenericListPage title="Οχήματα & Μηχανήματα" subtitle="Στόλος, έγγραφα, ασφάλειες, ΚΤΕΟ" addLabel="Νέο όχημα" rows={vehicles.map(v => ({ id: v.id, title: `${v.plate} · ${v.type}`, subtitle: `${v.code} · ${v.owner}`, status: v.status, qrType: 'VEH', qrLabel: v.plate }))} />;
       case 'equipment':
-        return <GenericListPage title="Εξοπλισμός" subtitle="Εργαλεία, πιστοποιητικά, QR και έλεγχοι" addLabel="Νέο στοιχείο" />;
+        return <GenericListPage title="Εξοπλισμός" subtitle="Εργαλεία, πιστοποιητικά, QR και έλεγχοι" addLabel="Νέο στοιχείο" rows={[{ id: 1, title: 'Ανυψωτικό μηχάνημα', subtitle: 'EQP-001 · Εργοτάξιο Κιλκίς', status: 'Active', qrType: 'EQP', qrLabel: 'Ανυψωτικό μηχάνημα' }]} />;
       case 'sites':
         return <GenericListPage title="Εργοτάξια" subtitle="Έργα, sites και συντεταγμένες" addLabel="Νέο εργοτάξιο" rows={sites.map(s => ({ id: s.id, title: s.name, subtitle: s.phase, status: s.status }))} />;
       case 'contractors':

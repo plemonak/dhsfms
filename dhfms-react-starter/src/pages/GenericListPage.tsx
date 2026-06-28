@@ -2,6 +2,7 @@ import { Camera, Plus, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useState, type ChangeEvent } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
+import { QrPreviewModal } from '../components/QrPreviewModal';
 import { dataProvider } from '../services/dataProvider';
 
 interface RowItem {
@@ -9,6 +10,8 @@ interface RowItem {
   title: string;
   subtitle?: string;
   status?: string;
+  qrType?: 'EMP' | 'VEH' | 'EQP';
+  qrLabel?: string;
 }
 
 interface Props {
@@ -28,6 +31,11 @@ export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγρα
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrDocumentType, setOcrDocumentType] = useState('');
   const [ocrFieldSuggestions, setOcrFieldSuggestions] = useState<string[]>([]);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrPayload, setQrPayload] = useState('');
+  const [qrUrl, setQrUrl] = useState('');
+  const [qrTitle, setQrTitle] = useState('');
+  const [qrSubtitle, setQrSubtitle] = useState('');
 
   useEffect(() => {
     return () => {
@@ -140,6 +148,16 @@ export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγρα
     return suggestions;
   }
 
+  async function openQrModal(row: RowItem) {
+    const payload = `${row.qrType ?? 'EQP'}|${row.id}|${row.qrLabel ?? row.title}`;
+    const generated = await dataProvider.generateQr(payload);
+    setQrPayload(generated.payload);
+    setQrUrl(generated.qrUrl);
+    setQrTitle(row.title);
+    setQrSubtitle(row.subtitle ?? 'QR για έλεγχο και εκτύπωση');
+    setQrModalOpen(true);
+  }
+
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     if (!file || !ocrDocumentType) {
@@ -221,9 +239,23 @@ export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγρα
       </div>
       {rows.length === 0 ? <EmptyState title={emptyTitle} subtitle="Το module υπάρχει στο νέο UI foundation και θα συνδεθεί με SharePoint στο επόμενο βήμα." /> : (
         <div className="card">
-          {rows.map(row => <div className="row clickable" key={row.id}><div className="row-main"><div className="row-title">{row.title}</div><div className="row-subtitle">{row.subtitle}</div></div><strong>{row.status}</strong></div>)}
+          {rows.map(row => (
+            <div className="row clickable" key={row.id}>
+              <div className="row-main">
+                <div className="row-title">{row.title}</div>
+                <div className="row-subtitle">{row.subtitle}</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {(row.qrType || row.qrLabel) && (
+                  <button className="secondary-btn" type="button" onClick={event => { event.stopPropagation(); void openQrModal(row); }}>QR</button>
+                )}
+                <strong>{row.status}</strong>
+              </div>
+            </div>
+          ))}
         </div>
       )}
+      <QrPreviewModal open={qrModalOpen} title={qrTitle} subtitle={qrSubtitle} payload={qrPayload} qrUrl={qrUrl} onClose={() => setQrModalOpen(false)} />
     </div>
   );
 }
