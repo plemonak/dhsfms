@@ -9,6 +9,7 @@ import { EvidencePage } from './pages/EvidencePage';
 import { GenericListPage } from './pages/GenericListPage';
 import { QrPage } from './pages/QrPage';
 import { SignaturePage } from './pages/SignaturePage';
+import { TrainingPage } from './pages/TrainingPage';
 import { dataProvider } from './services/dataProvider';
 import type { Employee, EvidenceDocument, PageKey, PpeIssue, Site, TrainingSession, Vehicle } from './types/models';
 
@@ -56,11 +57,11 @@ export default function App() {
       case 'employees':
         return <EmployeesPage employees={employees} onOpen={(id) => { setSelectedEmployeeId(id); setProfileTab('ppe'); setPage('employee-profile'); }} onNew={() => setPage('employee-form')} />;
       case 'employee-profile':
-        return <EmployeeProfilePage employee={selectedEmployee} trainings={trainings} documents={documents.filter(d => d.entityType === 'employee' && d.entityId === selectedEmployeeId)} ppeIssues={ppeIssues.filter(p => p.employeeId === selectedEmployeeId)} activeTab={profileTab} onTabChange={setProfileTab} onBack={() => setPage('employees')} onEdit={() => setPage('employee-form')} onTraining={() => setPage('training')} />;
+        return <EmployeeProfilePage employee={selectedEmployee} employees={employees} trainings={trainings} documents={documents.filter(d => d.entityType === 'employee' && d.entityId === selectedEmployeeId)} ppeIssues={ppeIssues.filter(p => p.employeeId === selectedEmployeeId)} activeTab={profileTab} onTabChange={setProfileTab} onBack={() => setPage('employees')} onEdit={() => setPage('employee-form')} />;
       case 'employee-form':
         return <EmployeeFormPage onBack={() => setPage(selectedEmployeeId ? 'employee-profile' : 'employees')} onSave={handleCreateEmployee} />;
       case 'training':
-        return <SignaturePage />;
+        return <TrainingPage trainings={siteTrainings} employees={siteEmployees} documents={documents.filter(document => document.entityType === 'training')} />;
       case 'ppe':
         return <GenericListPage title="Χορηγήσεις ΜΑΠ" subtitle="ΜΑΠ, υπογραφές εργαζομένου και εκδότη" addLabel="Νέα χορήγηση" rows={ppeIssues.map(p => ({ id: p.id, title: `Χορήγηση ΜΑΠ #${p.id}`, subtitle: p.issueDate, status: p.status }))} />;
       case 'medical':
