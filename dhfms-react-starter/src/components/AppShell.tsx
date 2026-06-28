@@ -1,4 +1,4 @@
-import { BarChart3, BriefcaseBusiness, Car, FileText, HardHat, Home, QrCode, Settings, ShieldCheck, Stethoscope, Users, Wrench } from 'lucide-react';
+import { BarChart3, BriefcaseBusiness, Car, FileText, HardHat, Home, QrCode, Settings, Stethoscope, Users, Wrench } from 'lucide-react';
 import type { AppUser, PageKey } from '../types/models';
 
 interface AppShellProps {
@@ -11,7 +11,6 @@ interface AppShellProps {
 const navItems: { key: PageKey; label: string; icon: React.ReactNode }[] = [
   { key: 'dashboard', label: 'Home', icon: <Home size={18} /> },
   { key: 'employees', label: 'Προσωπικό', icon: <Users size={18} /> },
-  { key: 'training', label: 'Εκπαιδεύσεις', icon: <ShieldCheck size={18} /> },
   { key: 'ppe', label: 'ΜΑΠ', icon: <HardHat size={18} /> },
   { key: 'medical', label: 'Ιατρικά', icon: <Stethoscope size={18} /> },
   { key: 'vehicles', label: 'Οχήματα', icon: <Car size={18} /> },
