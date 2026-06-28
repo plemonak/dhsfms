@@ -27,6 +27,13 @@ export const integrationConfig = {
     assets: readEnv('VITE_SHAREPOINT_LIST_ASSETS') ?? 'Assets',
   },
   powerAutomateBaseUrl: readEnv('VITE_POWERAUTOMATE_BASE_URL'),
+  powerAutomateFlows: {
+    ppeIssuePdf: readEnv('VITE_POWERAUTOMATE_FLOW_PPE_ISSUE_PDF'),
+    trainingAttendancePdf: readEnv('VITE_POWERAUTOMATE_FLOW_TRAINING_ATTENDANCE_PDF'),
+    evidenceUpload: readEnv('VITE_POWERAUTOMATE_FLOW_UPLOAD_EVIDENCE'),
+    qrPdf: readEnv('VITE_POWERAUTOMATE_FLOW_QR_PDF'),
+    ocrDocument: readEnv('VITE_POWERAUTOMATE_FLOW_OCR_DOCUMENT'),
+  },
   ocrEndpoint: readEnv('VITE_OCR_ENDPOINT'),
   signatureEndpoint: readEnv('VITE_SIGNATURE_ENDPOINT'),
   qrPrintEndpoint: readEnv('VITE_QR_PRINT_ENDPOINT'),
@@ -37,5 +44,9 @@ export function isSharePointConfigured() {
 }
 
 export function isFlowConfigured() {
-  return Boolean(integrationConfig.enableRealIntegrations && integrationConfig.powerAutomateBaseUrl);
+  return Boolean(
+    integrationConfig.enableRealIntegrations &&
+      (integrationConfig.powerAutomateBaseUrl ||
+        Object.values(integrationConfig.powerAutomateFlows).some(Boolean))
+  );
 }

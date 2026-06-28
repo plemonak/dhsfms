@@ -1,5 +1,5 @@
 import { integrationConfig, isFlowConfigured, isSharePointConfigured } from './integrationConfig';
-import { generateTrainingPdf, uploadEvidence } from './flowClient';
+import { createQrPrintPayload, generatePpeIssuePdf, generateTrainingAttendancePdf, generateTrainingPdf, ocrDocumentPlaceholder, uploadEvidence } from './flowClient';
 import { SharePointProvider } from './sharePointProvider';
 import { documents, trainings } from '../data/mockData';
 import type { EvidenceDocument, TrainingSession } from '../types/models';
@@ -55,11 +55,27 @@ export class FlowAdapter {
     return generateTrainingPdf({ ...input, trainerSignature: input.trainerSignature || 'placeholder' });
   }
 
+  async generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }) {
+    return generatePpeIssuePdf(input);
+  }
+
+  async generateTrainingAttendancePdf(input: { trainingSessionId: number; trainingTitle: string; trainingDate: string; trainerName: string; participantsJson: string; pdfFileName: string }) {
+    return generateTrainingAttendancePdf(input);
+  }
+
   async uploadEvidence(file: File, folderPath: string) {
     if (!isFlowConfigured()) {
       return uploadEvidence(file, folderPath);
     }
     return uploadEvidence(file, folderPath);
+  }
+
+  async createQrPrintPayload(payload: string) {
+    return createQrPrintPayload(payload);
+  }
+
+  async ocrDocumentPlaceholder(input: { fileName: string; contentType?: string; documentType?: string }) {
+    return ocrDocumentPlaceholder(input);
   }
 }
 
