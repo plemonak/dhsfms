@@ -1,5 +1,5 @@
-import type { Employee, EvidenceDocument, PpeIssue, ProjectStaffMember, Site, TrainingSession, Vehicle } from '../types/models';
-import { documents, employees, ppeIssues, projectStaff, sites, trainings, vehicles } from '../data/mockData';
+import type { Employee, EquipmentItem, EvidenceDocument, PpeCatalogItem, PpeIssue, ProjectStaffMember, Site, TrainingSession, TrainingTopic, Vehicle } from '../types/models';
+import { documents, employees, equipmentCatalog, ppeCatalog, ppeIssues, projectStaff, sites, trainingTopics, trainings, vehicles } from '../data/mockData';
 import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
 import { integrationConfig } from './integrationConfig';
 
@@ -8,6 +8,9 @@ export interface IDataProvider {
   getEmployees(siteId?: number): Promise<Employee[]>;
   getEmployee(id: number): Promise<Employee | undefined>;
   getProjectStaff(siteId?: number): Promise<ProjectStaffMember[]>;
+  getTrainingTopics(): Promise<TrainingTopic[]>;
+  getPpeCatalog(): Promise<PpeCatalogItem[]>;
+  getEquipmentCatalog(siteId?: number): Promise<EquipmentItem[]>;
   createEmployee(employee: Omit<Employee, 'id' | 'fullName'>): Promise<Employee>;
   getVehicles(siteId?: number): Promise<Vehicle[]>;
   getTrainings(siteId?: number): Promise<TrainingSession[]>;
@@ -24,6 +27,7 @@ export interface IDataProvider {
 
 export class MockDataProvider implements IDataProvider {
   private employeeStore = [...employees];
+  private trainingStore = [...trainings];
   private sharePointAdapter = new SharePointAdapter();
   private flowAdapter = new FlowAdapter();
   private ocrAdapter = new OcrAdapter();
@@ -62,6 +66,18 @@ export class MockDataProvider implements IDataProvider {
     return siteId ? projectStaffFromSharePoint.filter(person => person.id !== 0) : projectStaffFromSharePoint;
   }
 
+  async getTrainingTopics(): Promise<TrainingTopic[]> {
+    return trainingTopics;
+  }
+
+  async getPpeCatalog(): Promise<PpeCatalogItem[]> {
+    return ppeCatalog;
+  }
+
+  async getEquipmentCatalog(siteId?: number): Promise<EquipmentItem[]> {
+    return siteId ? equipmentCatalog.filter(item => item.siteId === siteId) : equipmentCatalog;
+  }
+
   async createEmployee(employee: Omit<Employee, 'id' | 'fullName'>): Promise<Employee> {
     const created: Employee = {
       ...employee,
@@ -91,8 +107,9 @@ export class MockDataProvider implements IDataProvider {
   }
 
   async getTrainings(siteId?: number): Promise<TrainingSession[]> {
-    const trainingsFromSharePoint = await this.readSharePointList<TrainingSession>(integrationConfig.sharePointLists.trainings, trainings);
-    return siteId ? trainingsFromSharePoint.filter(t => t.siteId === siteId) : trainingsFromSharePoint;
+    const trainingsFromSharePoint = await this.readSharePointList<TrainingSession>(integrationConfig.sharePointLists.trainings, this.trainingStore);
+    const resolved = trainingsFromSharePoint.length > 0 ? trainingsFromSharePoint : this.trainingStore;
+    return siteId ? resolved.filter(t => t.siteId === siteId) : resolved;
   }
 
   async getDocuments(entityType?: EvidenceDocument['entityType'], entityId?: number): Promise<EvidenceDocument[]> {
@@ -107,7 +124,27 @@ export class MockDataProvider implements IDataProvider {
   }
 
   async createTrainingRecord(payload: Record<string, unknown>) {
-    return this.sharePointAdapter.createListItem({ listName: integrationConfig.sharePointLists.trainings, item: payload });
+    const existingId = typeof payload.id === 'number' ? payload.id : undefined;
+    const created: TrainingSession = {
+      id: existingId ?? Math.max(...this.trainingStore.map(entry => entry.id)) + 1,
+      title: String(payload.title ?? 'Training Draft'),
+      date: String(payload.date ?? new Date().toISOString().slice(0, 10)),
+      trainerName: String(payload.trainerName ?? 'Mock Trainer'),
+      siteId: Number(payload.siteId ?? 2),
+      participantIds: Array.isArray(payload.participantIds) ? payload.participantIds as number[] : [],
+      status: (payload.status as TrainingSession['status']) ?? 'Draft',
+      pdfUrl: typeof payload.pdfUrl === 'string' ? payload.pdfUrl : undefined,
+    };
+
+    const existingIndex = this.trainingStore.findIndex(entry => entry.id === created.id);
+    if (existingIndex >= 0) {
+      this.trainingStore[existingIndex] = created;
+    } else {
+      this.trainingStore = [created, ...this.trainingStore];
+    }
+
+    const createdRemote = await this.sharePointAdapter.createListItem({ listName: integrationConfig.sharePointLists.trainings, item: payload });
+    return { id: created.id, status: createdRemote.status === 'mock-fallback' ? 'mock-fallback' : 'created' };
   }
 
   async triggerTrainingPdf(input: { trainingSessionId: number; trainingTitle: string; trainerName: string; trainerSignature: string; participantsJson: string; pdfFileName: string }) {

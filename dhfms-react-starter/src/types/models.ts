@@ -57,6 +57,14 @@ export interface TrainingSession {
   pdfUrl?: string;
 }
 
+export interface TrainingTopic {
+  id: number;
+  title: string;
+  competency?: string;
+  materialUrl?: string;
+  source?: string;
+}
+
 export interface EvidenceDocument {
   id: number;
   entityType: 'employee' | 'vehicle' | 'asset' | 'training' | 'ppe';
@@ -74,6 +82,27 @@ export interface PpeIssue {
   siteId: number;
   issueDate: string;
   issuedBy: string;
+  status: Status;
+}
+
+export interface PpeCatalogItem {
+  id: number;
+  ppeType: string;
+  model: string;
+  size: string;
+  enCertification: string;
+  issueDate: string;
+  replacementDate?: string;
+  expiryDate?: string;
+  quantity: number;
+  notes?: string;
+}
+
+export interface EquipmentItem {
+  id: number;
+  name: string;
+  serial?: string;
+  siteId: number;
   status: Status;
 }
 
