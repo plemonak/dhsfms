@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { SectionCard } from '../components/SectionCard';
+import { SignaturePad } from '../components/SignaturePad';
 import { StatusBadge } from '../components/StatusBadge';
 import type { Employee, EvidenceDocument, PpeIssue, TrainingSession } from '../types/models';
 
@@ -32,6 +33,8 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
   const [selectedTraineeIds, setSelectedTraineeIds] = useState<number[]>([employee.id]);
   const [attendanceReady, setAttendanceReady] = useState(false);
   const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
+  const [ppeSignature, setPpeSignature] = useState<string | null>(null);
+  const [trainingSignature, setTrainingSignature] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveTrainingTab('new');
@@ -78,6 +81,16 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
               <button className="primary-btn"><FilePlus2 size={17} />Νέα χορήγηση ΜΑΠ</button>
               <div style={{ marginTop: 12 }}>
                 {ppeIssues.map(issue => <div className="row" key={issue.id}><div className="row-main"><div className="row-title">Χορήγηση ΜΑΠ #{issue.id}</div><div className="row-subtitle">{issue.issueDate} · Εκδόθηκε από {issue.issuedBy}</div></div><StatusBadge status={issue.status} /></div>)}
+              </div>
+              <div style={{ marginTop: 14 }}>
+                <SignaturePad
+                  signer={employee.fullName}
+                  title="Υπογραφή χορήγησης ΜΑΠ"
+                  subtitle="Η υπογραφή αποθηκεύεται προσωρινά ως demo record για την επόμενη φάση PDF/upload."
+                  documentId={`ppe-${employee.id}`}
+                  onSignatureCaptured={({ signatureData }) => setPpeSignature(signatureData)}
+                />
+                {ppeSignature && <div className="row-subtitle" style={{ marginTop: 8 }}>Η υπογραφή ΜΑΠ αποθηκεύτηκε για το demo record.</div>}
               </div>
             </>
           )}
@@ -143,11 +156,21 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
                       </div>
                       <span className="badge Pending">Εκκρεμεί</span>
                     </div>
+                    <div style={{ marginTop: 14 }}>
+                      <SignaturePad
+                        signer={trainerName}
+                        title="Υπογραφή εκπαιδευτή"
+                        subtitle="Αποθηκεύστε την υπογραφή για το demo record της εκπαίδευσης."
+                        documentId={`training-${employee.id}`}
+                        onSignatureCaptured={({ signatureData }) => setTrainingSignature(signatureData)}
+                      />
+                    </div>
                     <button className="primary-btn" style={{ marginTop: 14 }} onClick={() => { setAttendanceReady(true); setActiveTrainingTab('attendance'); }}><FilePlus2 size={17} />Δημιουργία παρουσιολογίου PDF</button>
                   </div>
                   <div className="card card-pad">
                     <div className="section-title">Επόμενο βήμα</div>
                     <div className="row-subtitle">Μετά τη δημιουργία του παρουσιολογίου, το αρχείο θα είναι διαθέσιμο στο παρόν υποκατάστημα.</div>
+                    {trainingSignature && <div className="row-subtitle" style={{ marginTop: 8 }}>Η υπογραφή αποθηκεύτηκε για το demo record.</div>}
                   </div>
                 </div>
               )}
