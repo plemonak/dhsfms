@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { ArrowLeft, Camera, Save } from 'lucide-react';
 import { FormField } from '../components/FormField';
 import { PageHeader } from '../components/PageHeader';
@@ -49,6 +49,7 @@ export function EmployeeFormPage({ onBack, onSave }: Props) {
   const [ocrPreviewUrl, setOcrPreviewUrl] = useState<string | null>(null);
   const [ocrStatus, setOcrStatus] = useState('');
   const [ocrLoading, setOcrLoading] = useState(false);
+  const ocrInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     return () => {
@@ -107,7 +108,7 @@ export function EmployeeFormPage({ onBack, onSave }: Props) {
     }
   }
 
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     if (!file) return;
 
@@ -133,7 +134,7 @@ export function EmployeeFormPage({ onBack, onSave }: Props) {
           <div className="form-grid">
             <div style={{ gridColumn: '1 / -1' }}>
               <label className="field-label" htmlFor="employee-ocr-file">Ανέβασμα εικόνας / φωτογραφία ταυτότητας</label>
-              <input id="employee-ocr-file" className="field-input" type="file" accept="image/*" capture="environment" onChange={handleFileChange} />
+              <input ref={ocrInputRef} id="employee-ocr-file" className="field-input" type="file" accept="image/*" capture="environment" onChange={handleFileChange} />
               <div className="row-subtitle" style={{ marginTop: 8 }}>Η OCR συμπληρώνει τα πεδία για έλεγχο. Δεν αποθηκεύονται αυτόματα οι τιμές.</div>
             </div>
             {ocrPreviewUrl && (
@@ -142,7 +143,7 @@ export function EmployeeFormPage({ onBack, onSave }: Props) {
               </div>
             )}
             <div style={{ gridColumn: '1 / -1' }}>
-              <button className="primary-btn" type="button" onClick={() => document.getElementById('employee-ocr-file')?.click()} disabled={ocrLoading}><Camera size={17} />{ocrLoading ? 'Αναζήτηση OCR…' : 'Έναρξη OCR'}</button>
+              <button className="primary-btn" type="button" onClick={() => ocrInputRef.current?.click()} disabled={ocrLoading}><Camera size={17} />{ocrLoading ? 'Αναζήτηση OCR…' : 'Έναρξη OCR'}</button>
               {ocrFileName && <div className="row-subtitle" style={{ marginTop: 8 }}>Αρχείο: {ocrFileName}</div>}
               {ocrStatus && <div className="row-subtitle" style={{ marginTop: 8 }}>{ocrStatus}</div>}
             </div>

@@ -27,6 +27,13 @@ export interface Employee {
   hireDate?: string;
 }
 
+export interface ProjectStaffMember {
+  id: number;
+  displayName: string;
+  title?: string;
+  responsibleName?: string;
+}
+
 export interface Vehicle {
   id: number;
   code: string;

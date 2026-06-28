@@ -1,5 +1,5 @@
 import { Camera, Plus, SlidersHorizontal } from 'lucide-react';
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { QrPreviewModal } from '../components/QrPreviewModal';
@@ -21,9 +21,10 @@ interface Props {
   rows?: RowItem[];
   emptyTitle?: string;
   showLiftingCertificateOption?: boolean;
+  showOcrSection?: boolean;
 }
 
-export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγραφή', rows = [], emptyTitle = 'Δεν υπάρχουν εγγραφές ακόμα', showLiftingCertificateOption = false }: Props) {
+export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγραφή', rows = [], emptyTitle = 'Δεν υπάρχουν εγγραφές ακόμα', showLiftingCertificateOption = false, showOcrSection = true }: Props) {
   const [ocrPreviewUrl, setOcrPreviewUrl] = useState<string | null>(null);
   const [ocrFileName, setOcrFileName] = useState('');
   const [ocrStatus, setOcrStatus] = useState('');
@@ -32,6 +33,7 @@ export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγρα
   const [ocrDocumentType, setOcrDocumentType] = useState('');
   const [ocrFieldSuggestions, setOcrFieldSuggestions] = useState<string[]>([]);
   const [qrModalOpen, setQrModalOpen] = useState(false);
+  const ocrInputRef = useRef<HTMLInputElement | null>(null);
   const [qrPayload, setQrPayload] = useState('');
   const [qrUrl, setQrUrl] = useState('');
   const [qrTitle, setQrTitle] = useState('');
@@ -206,7 +208,7 @@ export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγρα
         <input className="search-input" placeholder="Αναζήτηση" />
         <button className="secondary-btn"><SlidersHorizontal size={17} />Φίλτρα</button>
       </div>
-      <div className="card card-pad" style={{ marginBottom: 12 }}>
+      {showOcrSection && <div className="card card-pad" style={{ marginBottom: 12 }}>
         <div className="section-title">OCR για έγγραφα / πινακίδες</div>
         <div className="row-subtitle" style={{ marginTop: 6 }}>Επιλέξτε πρώτα τον τύπο εγγράφου. Τα αποτελέσματα εμφανίζονται μόνο για έλεγχο και δεν αποθηκεύονται αυτόματα.</div>
         <select className="field-select" style={{ marginTop: 10 }} value={ocrDocumentType} onChange={event => setOcrDocumentType(event.target.value)}>
@@ -220,9 +222,9 @@ export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγρα
           <option value="Άδεια Οδήγησης">Άδεια Οδήγησης</option>
           <option value="Άδεια Χειριστή Μηχανημάτων Έργου">Άδεια Χειριστή Μηχανημάτων Έργου</option>
         </select>
-        <input id="ocr-generic-file" className="field-input" style={{ marginTop: 10 }} type="file" accept="image/*" capture="environment" onChange={handleFileChange} disabled={!ocrDocumentType} />
+        <input ref={ocrInputRef} id="ocr-generic-file" className="field-input" style={{ marginTop: 10 }} type="file" accept="image/*" capture="environment" onChange={handleFileChange} disabled={!ocrDocumentType} />
         <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button className="primary-btn" type="button" onClick={() => document.querySelector<HTMLInputElement>('#ocr-generic-file')?.click()} disabled={ocrLoading || !ocrDocumentType}><Camera size={17} />{ocrLoading ? 'Ανάγνωση…' : 'Έναρξη OCR'}</button>
+          <button className="primary-btn" type="button" onClick={() => ocrInputRef.current?.click()} disabled={ocrLoading || !ocrDocumentType}><Camera size={17} />{ocrLoading ? 'Ανάγνωση…' : 'Έναρξη OCR'}</button>
           {ocrFileName && <span className="row-subtitle">Αρχείο: {ocrFileName}</span>}
         </div>
         {ocrPreviewUrl && <img src={ocrPreviewUrl} alt="OCR preview" style={{ marginTop: 12, maxWidth: '100%', maxHeight: 220, objectFit: 'contain', border: '1px solid var(--dh-line)', borderRadius: 10 }} />}
@@ -236,7 +238,7 @@ export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγρα
             </ul>
           </div>
         )}
-      </div>
+      </div>}
       {rows.length === 0 ? <EmptyState title={emptyTitle} subtitle="Το module υπάρχει στο νέο UI foundation και θα συνδεθεί με SharePoint στο επόμενο βήμα." /> : (
         <div className="card">
           {rows.map(row => (

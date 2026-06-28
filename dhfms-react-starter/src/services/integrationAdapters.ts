@@ -60,6 +60,10 @@ export class FlowAdapter {
     return generatePpeIssuePdf(input);
   }
 
+  async generateEquipmentAssignmentPdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }) {
+    return generatePpeIssuePdf(input);
+  }
+
   async generateTrainingAttendancePdf(input: { trainingSessionId: number; trainingTitle: string; trainingDate: string; trainerName: string; participantsJson: string; pdfFileName: string }) {
     return generateTrainingAttendancePdf(input);
   }
