@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, Home, QrCode, Settings, Users, Wrench } from 'lucide-react';
+import { BriefcaseBusiness, Car, Home, QrCode, Settings, Users, Wrench } from 'lucide-react';
 import type { AppUser, PageKey } from '../types/models';
 
 interface AppShellProps {
@@ -11,6 +11,7 @@ interface AppShellProps {
 const navItems: { key: PageKey; label: string; icon: React.ReactNode }[] = [
   { key: 'dashboard', label: 'Home', icon: <Home size={18} /> },
   { key: 'employees', label: 'Προσωπικό', icon: <Users size={18} /> },
+  { key: 'vehicles', label: 'Οχήματα & ΜΕ', icon: <Car size={18} /> },
   { key: 'equipment', label: 'Εξοπλισμός', icon: <Wrench size={18} /> },
   { key: 'sites', label: 'Εργοτάξια', icon: <BriefcaseBusiness size={18} /> },
   { key: 'qr', label: 'QR', icon: <QrCode size={18} /> },
