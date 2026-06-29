@@ -52,6 +52,12 @@ export class SharePointAdapter {
 
   async createListItem(payload: SharePointListItemPayload): Promise<{ id?: number; status: string }> {
     const normalized = this.normalizeListName(payload.listName);
+    if (normalized.includes('employee')) {
+      return createEmployeeFlow(payload.item);
+    }
+    if (normalized.includes('vehicle')) {
+      return createVehicleFlow(payload.item);
+    }
     if (normalized.includes('training')) {
       return createTrainingFlow(payload.item);
     }
