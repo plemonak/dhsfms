@@ -2,7 +2,7 @@ import type { Employee, EquipmentItem, EvidenceDocument, PpeCatalogItem, PpeIssu
 import { documents, employees, equipmentCatalog, ppeCatalog, ppeIssues, projectStaff, sites, trainingTopics, trainings, vehicles } from '../data/mockData';
 import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
 import { integrationConfig } from './integrationConfig';
-import { createTrainingFlow, getEmployeesFlow, getPpeCatalogFlow, getProjectStaffFlow, getTrainingTopicsFlow } from './flowClient';
+import { createTrainingFlow, getEmployeesFlow, getPpeCatalogFlow, getProjectStaffFlow, getTrainingTopicsFlow, getVehiclesFlow } from './flowClient';
 
 export interface IDataProvider {
   getSites(): Promise<Site[]>;
@@ -103,8 +103,9 @@ export class MockDataProvider implements IDataProvider {
   }
 
   async getVehicles(siteId?: number): Promise<Vehicle[]> {
-    const vehiclesFromSharePoint = await this.readSharePointList<Vehicle>(integrationConfig.sharePointLists.vehicles, vehicles);
-    return siteId ? vehiclesFromSharePoint.filter(v => v.siteId === siteId) : vehiclesFromSharePoint;
+    const vehiclesFromSharePoint = await getVehiclesFlow(siteId, vehicles);
+    const filtered = siteId ? vehiclesFromSharePoint.filter(v => v.siteId === siteId) : vehiclesFromSharePoint;
+    return filtered.length > 0 ? filtered : vehicles.filter(v => (siteId ? v.siteId === siteId : true));
   }
 
   async getTrainings(siteId?: number): Promise<TrainingSession[]> {

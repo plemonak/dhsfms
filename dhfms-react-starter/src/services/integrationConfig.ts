@@ -27,6 +27,7 @@ export const integrationConfig = {
   powerAutomateBaseUrl: readEnv('VITE_POWERAUTOMATE_BASE_URL'),
   powerAutomateFlows: {
     getEmployees: readEnv('VITE_POWERAUTOMATE_FLOW_GET_EMPLOYEES'),
+    getVehicles: readEnv('VITE_POWERAUTOMATE_FLOW_GET_VEHICLES'),
     getProjectStaff: readEnv('VITE_POWERAUTOMATE_FLOW_GET_PROJECT_STAFF'),
     getTrainingTopics: readEnv('VITE_POWERAUTOMATE_FLOW_GET_TRAINING_TOPICS'),
     getPpeCatalog: readEnv('VITE_POWERAUTOMATE_FLOW_GET_PPE_CATALOG'),

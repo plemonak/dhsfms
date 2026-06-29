@@ -1,5 +1,5 @@
 import { integrationConfig, isFlowConfigured } from './integrationConfig';
-import type { Employee, PpeCatalogItem, ProjectStaffMember, TrainingTopic } from '../types/models';
+import type { Employee, PpeCatalogItem, ProjectStaffMember, TrainingTopic, Vehicle } from '../types/models';
 
 export interface GenerateTrainingPdfInput {
   trainingSessionId: number;
@@ -190,6 +190,62 @@ export async function getEmployeesFlow(siteId: number | undefined, fallback: Emp
     };
   });
 }
+
+export async function getVehiclesFlow(siteId: number | undefined, fallback: Vehicle[]): Promise<Vehicle[]> {
+  const result = await invokeFlowData<Vehicle[]>(
+    'getVehicles',
+    integrationConfig.powerAutomateFlows.getVehicles,
+    { siteId, flowType: 'get-vehicles' },
+    fallback
+  );
+
+  function toDisplayText(value: unknown): string | undefined {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      return String(value);
+    }
+
+    if (Array.isArray(value)) {
+      return value
+        .map((entry) => toDisplayText(entry))
+        .filter((entry): entry is string => Boolean(entry))
+        .join(' / ');
+    }
+
+    if (typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      const lookupValue = record.Value ?? record.Title ?? record.Name ?? record.DisplayName;
+      return lookupValue === undefined || lookupValue === null ? undefined : String(lookupValue);
+    }
+
+    return String(value);
+  }
+
+  return result.data.map((vehicle) => {
+    const raw = vehicle as Vehicle & Record<string, unknown>;
+
+    return {
+      ...vehicle,
+      id: Number(raw.id ?? raw.ID ?? 0),
+      code: toDisplayText(raw.code) ?? '',
+      plate: toDisplayText(raw.plate) ?? '',
+      type: toDisplayText(raw.type) ?? 'Vehicle',
+      owner: toDisplayText(raw.owner) ?? 'Unknown',
+      siteId: Number(raw.siteId ?? siteId ?? 2),
+      status: (toDisplayText(raw.status) ?? 'Active') as Vehicle['status'],
+      insuranceExpiry: toDisplayText(raw.insuranceExpiry),
+      kteoExpiry: toDisplayText(raw.kteoExpiry),
+    };
+  });
+}
+
 
 export async function getProjectStaffFlow(siteId: number | undefined, fallback: ProjectStaffMember[]): Promise<ProjectStaffMember[]> {
   const result = await invokeFlowData<ProjectStaffMember[]>(
