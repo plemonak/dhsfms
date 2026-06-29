@@ -23,7 +23,7 @@ export default function App() {
   const [ppeIssues, setPpeIssues] = useState<PpeIssue[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | undefined>(1);
   const [profileTab, setProfileTab] = useState<'ppe' | 'training' | 'medical' | 'licenses'>('ppe');
-  const [selectedSiteId] = useState(2);
+  const [selectedSiteId, setSelectedSiteId] = useState<number | 'all'>('all');
 
   useEffect(() => {
     async function load() {
@@ -37,11 +37,11 @@ export default function App() {
     void load();
   }, []);
 
-  const selectedSite = useMemo(() => sites.find(s => s.id === selectedSiteId), [sites, selectedSiteId]);
+  const selectedSite = useMemo(() => selectedSiteId === 'all' ? undefined : sites.find(s => s.id === selectedSiteId), [sites, selectedSiteId]);
   const selectedEmployee = useMemo(() => employees.find(e => e.id === selectedEmployeeId), [employees, selectedEmployeeId]);
-  const siteEmployees = useMemo(() => employees.filter(e => e.siteId === selectedSiteId), [employees, selectedSiteId]);
-  const siteVehicles = useMemo(() => vehicles.filter(v => v.siteId === selectedSiteId), [vehicles, selectedSiteId]);
-  const siteTrainings = useMemo(() => trainings.filter(t => t.siteId === selectedSiteId), [trainings, selectedSiteId]);
+  const siteEmployees = useMemo(() => selectedSiteId === 'all' ? employees : employees.filter(e => e.siteId === selectedSiteId), [employees, selectedSiteId]);
+  const siteVehicles = useMemo(() => selectedSiteId === 'all' ? vehicles : vehicles.filter(v => v.siteId === selectedSiteId), [vehicles, selectedSiteId]);
+  const siteTrainings = useMemo(() => selectedSiteId === 'all' ? trainings : trainings.filter(t => t.siteId === selectedSiteId), [trainings, selectedSiteId]);
 
   async function handleCreateEmployee(employee: Omit<Employee, 'id' | 'fullName'>) {
     const created = await dataProvider.createEmployee(employee);
@@ -53,7 +53,7 @@ export default function App() {
   function renderPage() {
     switch (page) {
       case 'dashboard':
-        return <DashboardPage site={selectedSite} employees={siteEmployees} vehicles={siteVehicles} trainings={siteTrainings} onNavigate={setPage} />;
+        return <DashboardPage site={selectedSite} sites={sites} selectedSiteId={selectedSiteId} onSiteChange={setSelectedSiteId} employees={siteEmployees} vehicles={siteVehicles} trainings={siteTrainings} totalEmployees={employees.length} totalVehicles={vehicles.length} onNavigate={setPage} />;
       case 'employees':
         return <EmployeesPage employees={employees} onOpen={(id) => { setSelectedEmployeeId(id); setProfileTab('ppe'); setPage('employee-profile'); }} onNew={() => setPage('employee-form')} />;
       case 'employee-profile':
@@ -83,7 +83,7 @@ export default function App() {
       case 'settings':
         return <GenericListPage title="Ρυθμίσεις" subtitle="Ρόλοι, permissions, access assignments και demo data" addLabel="Νέα ρύθμιση" />;
       default:
-        return <DashboardPage site={selectedSite} employees={siteEmployees} vehicles={siteVehicles} trainings={siteTrainings} onNavigate={setPage} />;
+        return <DashboardPage site={selectedSite} sites={sites} selectedSiteId={selectedSiteId} onSiteChange={setSelectedSiteId} employees={siteEmployees} vehicles={siteVehicles} trainings={siteTrainings} totalEmployees={employees.length} totalVehicles={vehicles.length} onNavigate={setPage} />;
     }
   }
 

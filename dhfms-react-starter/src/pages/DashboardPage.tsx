@@ -9,32 +9,52 @@ import type { Employee, PageKey, Site, TrainingSession, Vehicle } from '../types
 
 interface Props {
   site?: Site;
+  sites: Site[];
+  selectedSiteId: number | 'all';
   employees: Employee[];
   vehicles: Vehicle[];
   trainings: TrainingSession[];
+  totalEmployees: number;
+  totalVehicles: number;
   onNavigate: (page: PageKey) => void;
+  onSiteChange: (siteId: number | 'all') => void;
 }
 
-export function DashboardPage({ site, employees, vehicles, trainings, onNavigate }: Props) {
+export function DashboardPage({
+  site,
+  sites,
+  selectedSiteId,
+  employees,
+  vehicles,
+  trainings,
+  totalEmployees,
+  totalVehicles,
+  onNavigate,
+  onSiteChange,
+}: Props) {
+  const isAllSites = selectedSiteId === 'all';
+  const scopeText = isAllSites ? 'σύνολο ΔΥΚΑΤ' : 'στο εργοτάξιο';
   const pendingTrainings = trainings.filter(t => t.status === 'Pending');
+  const personnelCount = isAllSites ? totalEmployees : employees.length;
+  const vehicleCount = isAllSites ? totalVehicles : vehicles.length;
 
   return (
     <div className="page">
       <PageHeader title="Κέντρο ελέγχου" subtitle="Γρήγορη εικόνα έργου, προσωπικού, στόλου και εκκρεμοτήτων" />
-      <SiteContextBar site={site} />
+      <SiteContextBar site={site} sites={sites} selectedSiteId={selectedSiteId} onSiteChange={onSiteChange} />
 
       <div className="grid four">
-        <MetricCard label="Προσωπικό" value={employees.length} />
-        <MetricCard label="Οχήματα & ΜΕ" value={vehicles.length} />
-        <MetricCard label="Εκκρεμείς υπογραφές" value={pendingTrainings.length} alert={pendingTrainings.length > 0} />
-        <MetricCard label="Εργοτάξια" value={3} />
+        <MetricCard label={`Προσωπικό ${scopeText}`} value={personnelCount} />
+        <MetricCard label={`Οχήματα & ΜΕ ${scopeText}`} value={vehicleCount} />
+        {isAllSites && <MetricCard label="Εργοτάξια" value={sites.length} />}
+        <MetricCard label={`Εκκρεμείς υπογραφές ${scopeText}`} value={pendingTrainings.length} alert={pendingTrainings.length > 0} />
       </div>
 
       <div className="section-title">Ενότητες</div>
       <div className="grid three">
-        <ModuleTile icon={<Users />} title="Προσωπικό" subtitle={`${employees.length} εργαζόμενοι`} onClick={() => onNavigate('employees')} />
-        <ModuleTile icon={<Car />} title="Οχήματα & ΜΕ" subtitle={`${vehicles.length} οχήματα / μηχανήματα`} onClick={() => onNavigate('vehicles')} />
-        <ModuleTile icon={<Building2 />} title="Εργοτάξια" subtitle="Έργα και sites" onClick={() => onNavigate('sites')} />
+        <ModuleTile icon={<Users />} title="Προσωπικό" subtitle={`${personnelCount} ${scopeText}`} onClick={() => onNavigate('employees')} />
+        <ModuleTile icon={<Car />} title="Οχήματα & ΜΕ" subtitle={`${vehicleCount} ${scopeText}`} onClick={() => onNavigate('vehicles')} />
+        <ModuleTile icon={<Building2 />} title="Εργοτάξια" subtitle={`${sites.length} ενεργά εργοτάξια`} onClick={() => onNavigate('sites')} />
         <ModuleTile icon={<HardHat />} title="ΜΑΠ" subtitle="Χορηγήσεις και υπογραφές" onClick={() => onNavigate('ppe')} />
         <ModuleTile icon={<Wrench />} title="Εξοπλισμός" subtitle="Εργαλεία, πιστοποιητικά, QR" onClick={() => onNavigate('equipment')} />
         <ModuleTile icon={<Search />} title="Επιθεωρήσεις" subtitle="Φωτογραφίες και ευρήματα" onClick={() => onNavigate('smart-docs')} />
