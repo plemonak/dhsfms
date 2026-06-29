@@ -426,15 +426,32 @@ export async function createQrPrintPayload(payload: string): Promise<{ qrUrl: st
   return { qrUrl: result.url ?? '#', payload, status: result.status };
 }
 
-export async function ocrDocumentPlaceholder(input: { fileName: string; contentType?: string; documentType?: string }): Promise<{ text: string; confidence: number; status?: string }> {
-  const result = await invokeFlow(
+export async function ocrDocumentPlaceholder(input: {
+  fileName: string;
+  contentType?: string;
+  documentType?: string;
+  vehicleId?: number;
+  vehiclePlate?: string;
+  fileContentBase64?: string;
+}): Promise<{ text: string; confidence: number; status?: string; documentType?: string; fileName?: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'ocrDocument',
     integrationConfig.powerAutomateFlows.ocrDocument,
     { ...input, flowType: 'ocr-document-placeholder' },
-    '#'
+    {
+      status: 'mock-fallback',
+      text: 'OCR placeholder – configure VITE_POWERAUTOMATE_FLOW_OCR_DOCUMENT to enable extraction.',
+      confidence: 0.1,
+      documentType: input.documentType,
+      fileName: input.fileName,
+    }
   );
+
   return {
-    text: result.status === 'completed' ? 'OCR flow invocation placeholder completed.' : 'OCR placeholder – configure a Power Automate endpoint to enable real extraction.',
-    confidence: result.status === 'completed' ? 0.95 : 0.1,
-    status: result.status,
+    text: typeof result.data.text === 'string' ? result.data.text : '',
+    confidence: typeof result.data.confidence === 'number' ? result.data.confidence : 0.1,
+    status: typeof result.data.status === 'string' ? result.data.status : result.status,
+    documentType: typeof result.data.documentType === 'string' ? result.data.documentType : input.documentType,
+    fileName: typeof result.data.fileName === 'string' ? result.data.fileName : input.fileName,
   };
 }

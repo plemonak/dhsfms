@@ -182,7 +182,7 @@ export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγρα
     setOcrExtractedFields([]);
 
     try {
-      const result = await dataProvider.extractDocumentText(file);
+      const result = await dataProvider.extractDocumentText(file, { documentType: ocrDocumentType });
       const text = result.text ?? '';
       const preview = text
         .split(/\n/)

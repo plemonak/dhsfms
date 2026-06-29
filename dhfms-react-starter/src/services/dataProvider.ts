@@ -22,7 +22,7 @@ export interface IDataProvider {
   triggerTrainingPdf(input: { trainingSessionId: number; trainingTitle: string; trainerName: string; trainerSignature: string; participantsJson: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
   generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
   generateEquipmentAssignmentPdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
-  extractDocumentText(file: File): Promise<{ text: string; confidence: number }>;
+  extractDocumentText(file: File, options?: { documentType?: string; vehicleId?: number; vehiclePlate?: string }): Promise<{ text: string; confidence: number }>;
   captureSignature(payload: { signerName: string; documentId: string }): Promise<{ signatureUrl: string; status: 'pending' | 'completed' }>;
   generateQr(payload: string): Promise<{ qrUrl: string; payload: string }>;
 }
@@ -181,8 +181,8 @@ export class MockDataProvider implements IDataProvider {
     return this.flowAdapter.generateEquipmentAssignmentPdf(input);
   }
 
-  async extractDocumentText(file: File) {
-    return this.ocrAdapter.extractText(file);
+  async extractDocumentText(file: File, options?: { documentType?: string; vehicleId?: number; vehiclePlate?: string }) {
+    return this.ocrAdapter.extractText(file, options);
   }
 
   async captureSignature(payload: { signerName: string; documentId: string }) {

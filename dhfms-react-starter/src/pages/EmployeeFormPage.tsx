@@ -113,7 +113,7 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
     setOcrExtractedFields([]);
 
     try {
-      const result = await dataProvider.extractDocumentText(file);
+      const result = await dataProvider.extractDocumentText(file, { documentType: 'IdentityDocument' });
       applyOcrFields(result.text);
       setOcrStatus(result.confidence > 0.2 ? 'Το OCR ολοκληρώθηκε και τα πεδία συμπληρώθηκαν για έλεγχο.' : 'Ενεργοποιήθηκε mock OCR fallback. Ελέγξτε τα πεδία πριν την αποθήκευση.');
     } catch (error) {
