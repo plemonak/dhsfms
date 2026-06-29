@@ -1,5 +1,5 @@
 import { integrationConfig, isFlowConfigured } from './integrationConfig';
-import type { Employee, PpeCatalogItem, ProjectStaffMember, TrainingTopic, Vehicle } from '../types/models';
+import type { Employee, PpeCatalogItem, ProjectStaffMember, Site, TrainingTopic, Vehicle } from '../types/models';
 
 export interface GenerateTrainingPdfInput {
   trainingSessionId: number;
@@ -190,6 +190,58 @@ export async function getEmployeesFlow(siteId: number | undefined, fallback: Emp
     };
   });
 }
+
+export async function getSitesFlow(fallback: Site[]): Promise<Site[]> {
+  const result = await invokeFlowData<Site[]>(
+    'getSites',
+    integrationConfig.powerAutomateFlows.getSites,
+    { flowType: 'get-sites' },
+    fallback
+  );
+
+  function toDisplayText(value: unknown): string | undefined {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      return String(value);
+    }
+
+    if (Array.isArray(value)) {
+      return value
+        .map((entry) => toDisplayText(entry))
+        .filter((entry): entry is string => Boolean(entry))
+        .join(' / ');
+    }
+
+    if (typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      const lookupValue = record.Value ?? record.Title ?? record.Name ?? record.DisplayName;
+      return lookupValue === undefined || lookupValue === null ? undefined : String(lookupValue);
+    }
+
+    return String(value);
+  }
+
+  return result.data.map((site) => {
+    const raw = site as Site & Record<string, unknown>;
+
+    return {
+      ...site,
+      id: Number(raw.id ?? raw.ID ?? 0),
+      name: toDisplayText(raw.name) ?? 'Site',
+      phase: toDisplayText(raw.phase),
+      status: (toDisplayText(raw.status) ?? 'Active') as Site['status'],
+      coordinates: toDisplayText(raw.coordinates),
+    };
+  });
+}
+
 
 export async function getVehiclesFlow(siteId: number | undefined, fallback: Vehicle[]): Promise<Vehicle[]> {
   const result = await invokeFlowData<Vehicle[]>(

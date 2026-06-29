@@ -2,7 +2,7 @@ import type { Employee, EquipmentItem, EvidenceDocument, PpeCatalogItem, PpeIssu
 import { documents, employees, equipmentCatalog, ppeCatalog, ppeIssues, projectStaff, sites, trainingTopics, trainings, vehicles } from '../data/mockData';
 import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
 import { integrationConfig } from './integrationConfig';
-import { createTrainingFlow, getEmployeesFlow, getPpeCatalogFlow, getProjectStaffFlow, getTrainingTopicsFlow, getVehiclesFlow } from './flowClient';
+import { createTrainingFlow, getEmployeesFlow, getPpeCatalogFlow, getProjectStaffFlow, getTrainingTopicsFlow, getVehiclesFlow, getSitesFlow } from './flowClient';
 
 export interface IDataProvider {
   getSites(): Promise<Site[]>;
@@ -48,7 +48,8 @@ export class MockDataProvider implements IDataProvider {
   }
 
   async getSites(): Promise<Site[]> {
-    return this.readSharePointList<Site>(integrationConfig.sharePointLists.sites, sites);
+    const sitesFromSharePoint = await getSitesFlow(sites);
+    return sitesFromSharePoint.length > 0 ? sitesFromSharePoint : sites;
   }
 
   async getEmployees(siteId?: number): Promise<Employee[]> {
