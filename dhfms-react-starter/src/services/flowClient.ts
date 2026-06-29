@@ -128,7 +128,60 @@ export async function getEmployeesFlow(siteId: number | undefined, fallback: Emp
     { siteId, flowType: 'get-employees' },
     fallback
   );
-  return result.data;
+
+  function toDisplayText(value: unknown): string | undefined {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      return String(value);
+    }
+
+    if (typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      const lookupValue = record.Value ?? record.Title ?? record.Name;
+      return lookupValue === undefined || lookupValue === null ? undefined : String(lookupValue);
+    }
+
+    return String(value);
+  }
+
+  return result.data.map((employee) => {
+    const raw = employee as Employee & Record<string, unknown>;
+
+    const firstName = toDisplayText(raw.firstName) ?? '';
+    const lastName = toDisplayText(raw.lastName) ?? '';
+    const fullName =
+      toDisplayText(raw.fullName) ??
+      `${lastName} ${firstName}`.trim();
+
+    const company = toDisplayText(raw.company) ?? 'DYKAT';
+    const contractor = toDisplayText(raw.contractor);
+
+    return {
+      ...employee,
+      id: Number(raw.id ?? raw.ID ?? 0),
+      employeeNo: toDisplayText(raw.employeeNo) ?? '',
+      firstName,
+      lastName,
+      fullName,
+      position: toDisplayText(raw.position) ?? '',
+      status: (toDisplayText(raw.status) ?? 'Active') as Employee['status'],
+      email: toDisplayText(raw.email),
+      mobile: toDisplayText(raw.mobile),
+      company,
+      contractor: contractor ?? (company !== 'DYKAT' ? company : undefined),
+      siteId: employee.siteId ?? siteId ?? 2,
+      personType:
+        employee.personType ??
+        (company !== 'DYKAT' ? 'Subcontractor' : 'DYKAT employee'),
+    };
+  });
 }
 
 export async function getProjectStaffFlow(siteId: number | undefined, fallback: ProjectStaffMember[]): Promise<ProjectStaffMember[]> {
