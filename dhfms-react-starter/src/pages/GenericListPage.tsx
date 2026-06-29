@@ -22,9 +22,10 @@ interface Props {
   emptyTitle?: string;
   showLiftingCertificateOption?: boolean;
   showOcrSection?: boolean;
+  onAdd?: () => void;
 }
 
-export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγραφή', rows = [], emptyTitle = 'Δεν υπάρχουν εγγραφές ακόμα', showLiftingCertificateOption = false, showOcrSection = true }: Props) {
+export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγραφή', rows = [], emptyTitle = 'Δεν υπάρχουν εγγραφές ακόμα', showLiftingCertificateOption = false, showOcrSection = true, onAdd }: Props) {
   const [ocrPreviewUrl, setOcrPreviewUrl] = useState<string | null>(null);
   const [ocrFileName, setOcrFileName] = useState('');
   const [ocrStatus, setOcrStatus] = useState('');
@@ -208,7 +209,7 @@ export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγρα
 
   return (
     <div className="page">
-      <PageHeader title={title} subtitle={subtitle} actions={<button className="primary-btn"><Plus size={17} />{addLabel}</button>} />
+      <PageHeader title={title} subtitle={subtitle} actions={<button className="primary-btn" type="button" onClick={onAdd}><Plus size={17} />{addLabel}</button>} />
       <div className="toolbar">
         <input className="search-input" placeholder="Αναζήτηση" />
         <button className="secondary-btn"><SlidersHorizontal size={17} />Φίλτρα</button>

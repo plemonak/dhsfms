@@ -123,6 +123,7 @@ export type PageKey =
   | 'medical'
   | 'licenses'
   | 'vehicles'
+  | 'vehicle-form'
   | 'vehicle-profile'
   | 'sites'
   | 'contractors'

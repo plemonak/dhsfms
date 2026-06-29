@@ -10,6 +10,7 @@ import { GenericListPage } from './pages/GenericListPage';
 import { QrPage } from './pages/QrPage';
 import { SignaturePage } from './pages/SignaturePage';
 import { TrainingPage } from './pages/TrainingPage';
+import { VehicleFormPage } from './pages/VehicleFormPage';
 import { dataProvider } from './services/dataProvider';
 import type { Employee, EvidenceDocument, PageKey, PpeIssue, Site, TrainingSession, Vehicle } from './types/models';
 
@@ -43,13 +44,21 @@ export default function App() {
   const siteVehicles = useMemo(() => selectedSiteId === 'all' ? vehicles : vehicles.filter(v => v.siteId === selectedSiteId), [vehicles, selectedSiteId]);
   const siteTrainings = useMemo(() => selectedSiteId === 'all' ? trainings : trainings.filter(t => t.siteId === selectedSiteId), [trainings, selectedSiteId]);
   const employeePositionOptions = useMemo(() => Array.from(new Set(employees.flatMap(employee => employee.position.split(' / ').map(position => position.trim()).filter(Boolean)))).sort(), [employees]);
-  const employeeCompanyOptions = useMemo(() => Array.from(new Set(['DYKAT', ...employees.map(employee => employee.company).filter(Boolean)])).sort(), [employees]);
+  const employeeCompanyOptions = useMemo(() => Array.from(new Set(['ΔΥΚΑΤ', ...employees.map(employee => employee.company).filter(Boolean)])).sort(), [employees]);
+  const vehicleOwnerOptions = useMemo(() => Array.from(new Set(['ΔΥΚΑΤ', ...vehicles.map(vehicle => vehicle.owner).filter(Boolean)])).sort(), [vehicles]);
+  const vehicleTypeOptions = useMemo(() => Array.from(new Set(['Όχημα', 'Μηχάνημα Έργου', ...vehicles.map(vehicle => vehicle.type).filter(Boolean)])).sort(), [vehicles]);
 
   async function handleCreateEmployee(employee: Omit<Employee, 'id' | 'fullName'>) {
     const created = await dataProvider.createEmployee(employee);
     setEmployees(await dataProvider.getEmployees());
     setSelectedEmployeeId(created.id);
     setPage('employee-profile');
+  }
+
+  async function handleCreateVehicle(vehicle: Omit<Vehicle, 'id'>) {
+    await dataProvider.createVehicle(vehicle);
+    setVehicles(await dataProvider.getVehicles());
+    setPage('vehicles');
   }
 
   function renderPage() {
@@ -71,7 +80,9 @@ export default function App() {
       case 'licenses':
         return <EvidencePage title="Άδειες / Πιστοποιήσεις" subtitle="Άδειες εργαζομένων, πιστοποιήσεις και λήξεις" />;
       case 'vehicles':
-        return <GenericListPage title="Οχήματα & Μηχανήματα" subtitle="Στόλος, έγγραφα, ασφάλειες, ΚΤΕΟ" addLabel="Νέο όχημα" rows={vehicles.map(v => ({ id: v.id, title: `${v.plate} · ${v.type}`, subtitle: `${v.code} · ${v.owner}`, status: v.status, qrType: 'VEH', qrLabel: v.plate }))} />;
+        return <GenericListPage title="Οχήματα & Μηχανήματα" subtitle="Στόλος, έγγραφα, ασφάλειες, ΚΤΕΟ" addLabel="Νέο όχημα" onAdd={() => setPage('vehicle-form')} rows={vehicles.map(v => ({ id: v.id, title: `${v.plate} · ${v.type}`, subtitle: `${v.code} · ${v.owner}`, status: v.status, qrType: 'VEH', qrLabel: v.plate }))} />;
+      case 'vehicle-form':
+        return <VehicleFormPage onBack={() => setPage('vehicles')} onSave={handleCreateVehicle} sites={sites} selectedSiteId={selectedSiteId} ownerOptions={vehicleOwnerOptions} typeOptions={vehicleTypeOptions} />;
       case 'equipment':
         return <GenericListPage title="Εξοπλισμός" subtitle="Εργαλεία, πιστοποιητικά, QR και έλεγχοι" addLabel="Νέο στοιχείο" showOcrSection={false} rows={[{ id: 1, title: 'Ανυψωτικό μηχάνημα', subtitle: 'EQP-001 · Εργοτάξιο Κιλκίς', status: 'Active', qrType: 'EQP', qrLabel: 'Ανυψωτικό μηχάνημα' }]} />;
       case 'sites':

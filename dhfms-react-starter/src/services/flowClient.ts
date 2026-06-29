@@ -341,6 +341,17 @@ export async function createEmployeeFlow(payload: Record<string, unknown>): Prom
   return { id: responseId, status: result.status };
 }
 
+export async function createVehicleFlow(payload: Record<string, unknown>): Promise<{ id?: number; status: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'createVehicle',
+    integrationConfig.powerAutomateFlows.createVehicle,
+    { ...payload, flowType: 'create-vehicle' },
+    payload
+  );
+  const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
+  return { id: responseId, status: result.status };
+}
+
 export async function createTrainingFlow(payload: Record<string, unknown>): Promise<{ id?: number; status: string }> {
   const result = await invokeFlowData<Record<string, unknown>>(
     'createTraining',

@@ -33,6 +33,7 @@ export const integrationConfig = {
     getTrainingTopics: readEnv('VITE_POWERAUTOMATE_FLOW_GET_TRAINING_TOPICS'),
     getPpeCatalog: readEnv('VITE_POWERAUTOMATE_FLOW_GET_PPE_CATALOG'),
       createEmployee: readEnv('VITE_POWERAUTOMATE_FLOW_CREATE_EMPLOYEE'),
+      createVehicle: readEnv('VITE_POWERAUTOMATE_FLOW_CREATE_VEHICLE'),
     createTraining: readEnv('VITE_POWERAUTOMATE_FLOW_CREATE_TRAINING'),
     createPpeIssue: readEnv('VITE_POWERAUTOMATE_FLOW_CREATE_PPE_ISSUE'),
     ppeIssuePdf: readEnv('VITE_POWERAUTOMATE_FLOW_PPE_ISSUE_PDF'),

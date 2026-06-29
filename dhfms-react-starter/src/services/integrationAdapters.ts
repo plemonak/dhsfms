@@ -4,6 +4,7 @@ import {
   createPpeIssueFlow,
   createQrPrintPayload,
   createTrainingFlow,
+  createVehicleFlow,
   generatePpeIssuePdf,
   generateTrainingAttendancePdf,
   generateTrainingPdf,

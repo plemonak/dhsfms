@@ -13,6 +13,7 @@ export interface IDataProvider {
   getPpeCatalog(): Promise<PpeCatalogItem[]>;
   getEquipmentCatalog(siteId?: number): Promise<EquipmentItem[]>;
   createEmployee(employee: Omit<Employee, 'id' | 'fullName'>): Promise<Employee>;
+  createVehicle(vehicle: Omit<Vehicle, 'id'>): Promise<Vehicle>;
   getVehicles(siteId?: number): Promise<Vehicle[]>;
   getTrainings(siteId?: number): Promise<TrainingSession[]>;
   getDocuments(entityType?: EvidenceDocument['entityType'], entityId?: number): Promise<EvidenceDocument[]>;
@@ -107,6 +108,24 @@ export class MockDataProvider implements IDataProvider {
     const vehiclesFromSharePoint = await getVehiclesFlow(siteId, vehicles);
     const filtered = siteId ? vehiclesFromSharePoint.filter(v => v.siteId === siteId) : vehiclesFromSharePoint;
     return filtered.length > 0 ? filtered : vehicles.filter(v => (siteId ? v.siteId === siteId : true));
+  }
+
+  async createVehicle(vehicle: Omit<Vehicle, 'id'>): Promise<Vehicle> {
+    const created: Vehicle = {
+      ...vehicle,
+      id: Date.now(),
+    };
+
+    const createdRemote = await this.sharePointAdapter.createListItem({
+      listName: integrationConfig.sharePointLists.vehicles,
+      item: vehicle,
+    });
+
+    if (createdRemote.status !== 'mock-fallback' && createdRemote.id) {
+      created.id = createdRemote.id;
+    }
+
+    return created;
   }
 
   async getTrainings(siteId?: number): Promise<TrainingSession[]> {
