@@ -10,8 +10,6 @@ function readEnv(name: string): string | undefined {
 export const integrationConfig = {
   enableRealIntegrations: readEnv('VITE_ENABLE_REAL_INTEGRATIONS') === 'true',
   sharePointSiteUrl: readEnv('VITE_SHAREPOINT_SITE_URL'),
-  sharePointApiUrl: readEnv('VITE_SHAREPOINT_API_URL'),
-  sharePointAccessToken: readEnv('VITE_SHAREPOINT_ACCESS_TOKEN'),
   sharePointLists: {
     employees: readEnv('VITE_SHAREPOINT_LIST_EMPLOYEES') ?? 'Employees',
     projectStaff: readEnv('VITE_SHAREPOINT_LIST_PROJECTSTAFF') ?? 'ProjectStaff',
@@ -28,6 +26,12 @@ export const integrationConfig = {
   },
   powerAutomateBaseUrl: readEnv('VITE_POWERAUTOMATE_BASE_URL'),
   powerAutomateFlows: {
+    getEmployees: readEnv('VITE_POWERAUTOMATE_FLOW_GET_EMPLOYEES'),
+    getProjectStaff: readEnv('VITE_POWERAUTOMATE_FLOW_GET_PROJECT_STAFF'),
+    getTrainingTopics: readEnv('VITE_POWERAUTOMATE_FLOW_GET_TRAINING_TOPICS'),
+    getPpeCatalog: readEnv('VITE_POWERAUTOMATE_FLOW_GET_PPE_CATALOG'),
+    createTraining: readEnv('VITE_POWERAUTOMATE_FLOW_CREATE_TRAINING'),
+    createPpeIssue: readEnv('VITE_POWERAUTOMATE_FLOW_CREATE_PPE_ISSUE'),
     ppeIssuePdf: readEnv('VITE_POWERAUTOMATE_FLOW_PPE_ISSUE_PDF'),
     trainingAttendancePdf: readEnv('VITE_POWERAUTOMATE_FLOW_TRAINING_ATTENDANCE_PDF'),
     evidenceUpload: readEnv('VITE_POWERAUTOMATE_FLOW_UPLOAD_EVIDENCE'),
@@ -40,7 +44,7 @@ export const integrationConfig = {
 };
 
 export function isSharePointConfigured() {
-  return Boolean(integrationConfig.enableRealIntegrations && (integrationConfig.sharePointSiteUrl || integrationConfig.sharePointApiUrl));
+  return Boolean(integrationConfig.sharePointSiteUrl);
 }
 
 export function isFlowConfigured() {

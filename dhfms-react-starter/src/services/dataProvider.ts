@@ -2,6 +2,7 @@ import type { Employee, EquipmentItem, EvidenceDocument, PpeCatalogItem, PpeIssu
 import { documents, employees, equipmentCatalog, ppeCatalog, ppeIssues, projectStaff, sites, trainingTopics, trainings, vehicles } from '../data/mockData';
 import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
 import { integrationConfig } from './integrationConfig';
+import { createTrainingFlow, getEmployeesFlow, getPpeCatalogFlow, getProjectStaffFlow, getTrainingTopicsFlow } from './flowClient';
 
 export interface IDataProvider {
   getSites(): Promise<Site[]>;
@@ -51,7 +52,7 @@ export class MockDataProvider implements IDataProvider {
   }
 
   async getEmployees(siteId?: number): Promise<Employee[]> {
-    const employeesFromSharePoint = await this.readSharePointList<Employee>(integrationConfig.sharePointLists.employees, this.employeeStore);
+    const employeesFromSharePoint = await getEmployeesFlow(siteId, this.employeeStore);
     const filtered = siteId ? employeesFromSharePoint.filter(e => e.siteId === siteId) : employeesFromSharePoint;
     return filtered.length > 0 ? filtered : this.employeeStore.filter(e => (siteId ? e.siteId === siteId : true));
   }
@@ -62,16 +63,16 @@ export class MockDataProvider implements IDataProvider {
   }
 
   async getProjectStaff(siteId?: number): Promise<ProjectStaffMember[]> {
-    const projectStaffFromSharePoint = await this.readSharePointList<ProjectStaffMember>(integrationConfig.sharePointLists.projectStaff, projectStaff);
+    const projectStaffFromSharePoint = await getProjectStaffFlow(siteId, projectStaff);
     return siteId ? projectStaffFromSharePoint.filter(person => person.id !== 0) : projectStaffFromSharePoint;
   }
 
   async getTrainingTopics(): Promise<TrainingTopic[]> {
-    return trainingTopics;
+    return getTrainingTopicsFlow(trainingTopics);
   }
 
   async getPpeCatalog(): Promise<PpeCatalogItem[]> {
-    return ppeCatalog;
+    return getPpeCatalogFlow(ppeCatalog);
   }
 
   async getEquipmentCatalog(siteId?: number): Promise<EquipmentItem[]> {
@@ -143,8 +144,8 @@ export class MockDataProvider implements IDataProvider {
       this.trainingStore = [created, ...this.trainingStore];
     }
 
-    const createdRemote = await this.sharePointAdapter.createListItem({ listName: integrationConfig.sharePointLists.trainings, item: payload });
-    return { id: created.id, status: createdRemote.status === 'mock-fallback' ? 'mock-fallback' : 'created' };
+    const createdRemote = await createTrainingFlow(payload);
+    return { id: createdRemote.id ?? created.id, status: createdRemote.status === 'mock-fallback' ? 'mock-fallback' : 'created' };
   }
 
   async triggerTrainingPdf(input: { trainingSessionId: number; trainingTitle: string; trainerName: string; trainerSignature: string; participantsJson: string; pdfFileName: string }) {

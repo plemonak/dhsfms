@@ -1,7 +1,20 @@
 import { integrationConfig, isFlowConfigured, isSharePointConfigured } from './integrationConfig';
-import { createQrPrintPayload, generatePpeIssuePdf, generateTrainingAttendancePdf, generateTrainingPdf, ocrDocumentPlaceholder, uploadEvidence } from './flowClient';
-import { SharePointProvider } from './sharePointProvider';
+import {
+  createPpeIssueFlow,
+  createQrPrintPayload,
+  createTrainingFlow,
+  generatePpeIssuePdf,
+  generateTrainingAttendancePdf,
+  generateTrainingPdf,
+  getEmployeesFlow,
+  getPpeCatalogFlow,
+  getProjectStaffFlow,
+  getTrainingTopicsFlow,
+  ocrDocumentPlaceholder,
+  uploadEvidence,
+} from './flowClient';
 import { documents, trainings } from '../data/mockData';
+import type { Employee, PpeCatalogItem, ProjectStaffMember, TrainingTopic } from '../types/models';
 import type { EvidenceDocument, TrainingSession } from '../types/models';
 import QRCode from 'qrcode';
 
@@ -31,20 +44,41 @@ export interface QrResult {
 }
 
 export class SharePointAdapter {
-  private provider = isSharePointConfigured() ? new SharePointProvider() : null;
+  private normalizeListName(listName: string): string {
+    return listName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
 
   async createListItem(payload: SharePointListItemPayload): Promise<{ id?: number; status: string }> {
-    if (!this.provider) {
+    const normalized = this.normalizeListName(payload.listName);
+    if (normalized.includes('training')) {
+      return createTrainingFlow(payload.item);
+    }
+    if (normalized.includes('ppe')) {
+      return createPpeIssueFlow(payload.item);
+    }
+    console.info(`[SharePointAdapter][MockFallback] No configured flow mapping for write list '${payload.listName}'.`);
+    if (!isFlowConfigured()) {
       return { id: Date.now(), status: 'mock-fallback' };
     }
-    return this.provider.createListItem(payload);
+    return { id: Date.now(), status: 'mock-fallback' };
   }
 
   async getListItems(listName: string): Promise<unknown[]> {
-    if (!this.provider) {
-      return [];
+    const normalized = this.normalizeListName(listName);
+    if (normalized === 'employees') {
+      return getEmployeesFlow(undefined, [] as Employee[]);
     }
-    return this.provider.getListItems(listName);
+    if (normalized === 'projectstaff') {
+      return getProjectStaffFlow(undefined, [] as ProjectStaffMember[]);
+    }
+    if (normalized.includes('trainingtopic')) {
+      return getTrainingTopicsFlow([] as TrainingTopic[]);
+    }
+    if (normalized.includes('ppecatalog')) {
+      return getPpeCatalogFlow([] as PpeCatalogItem[]);
+    }
+    console.info(`[SharePointAdapter][MockFallback] No configured flow mapping for read list '${listName}'.`);
+    return [];
   }
 }
 

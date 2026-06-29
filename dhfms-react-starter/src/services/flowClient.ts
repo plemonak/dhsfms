@@ -1,4 +1,5 @@
 import { integrationConfig, isFlowConfigured } from './integrationConfig';
+import type { Employee, PpeCatalogItem, ProjectStaffMember, TrainingTopic } from '../types/models';
 
 export interface GenerateTrainingPdfInput {
   trainingSessionId: number;
@@ -34,8 +35,13 @@ export interface FlowResult {
   payload?: Record<string, unknown>;
 }
 
+function logMockFallback(operation: string, reason: string) {
+  console.info(`[FlowClient][MockFallback] ${operation}: ${reason}`);
+}
+
 async function invokeFlow(endpoint: string | undefined, payload: Record<string, unknown>, fallbackUrl: string): Promise<FlowResult> {
   if (!isFlowConfigured() || !endpoint) {
+    logMockFallback('invokeFlow', `Missing flow URL or integrations disabled for payload type: ${String(payload.flowType ?? 'unknown')}.`);
     return {
       status: 'mock-fallback',
       message: 'Power Automate flow URL not configured. Returning mock fallback.',
@@ -63,6 +69,7 @@ async function invokeFlow(endpoint: string | undefined, payload: Record<string, 
       payload,
     };
   } catch (error) {
+    logMockFallback('invokeFlow', 'Flow invocation failed. See warning for details.');
     console.warn('Power Automate flow invocation failed. Falling back to mock response.', error);
     return {
       status: 'mock-fallback',
@@ -71,6 +78,109 @@ async function invokeFlow(endpoint: string | undefined, payload: Record<string, 
       payload,
     };
   }
+}
+
+async function invokeFlowData<T>(
+  operation: string,
+  endpoint: string | undefined,
+  payload: Record<string, unknown>,
+  fallback: T
+): Promise<{ data: T; status: 'mock-fallback' | 'completed' }> {
+  if (!isFlowConfigured() || !endpoint) {
+    logMockFallback(operation, 'Missing flow URL or integrations disabled.');
+    return { data: fallback, status: 'mock-fallback' };
+  }
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Flow request failed with status ${response.status}`);
+    }
+
+    const data = await response.json().catch(() => ({}));
+    if (Array.isArray(data)) {
+      return { data: data as T, status: 'completed' };
+    }
+    if (data && typeof data === 'object') {
+      const mapped = (data as { value?: T; items?: T }).value ?? (data as { value?: T; items?: T }).items;
+      if (mapped !== undefined) {
+        return { data: mapped, status: 'completed' };
+      }
+    }
+
+    throw new Error('Flow response did not contain expected payload.');
+  } catch (error) {
+    logMockFallback(operation, 'Flow invocation failed. Using local mock data.');
+    console.warn(`${operation} flow invocation failed. Falling back to mock data.`, error);
+    return { data: fallback, status: 'mock-fallback' };
+  }
+}
+
+export async function getEmployeesFlow(siteId: number | undefined, fallback: Employee[]): Promise<Employee[]> {
+  const result = await invokeFlowData<Employee[]>(
+    'getEmployees',
+    integrationConfig.powerAutomateFlows.getEmployees,
+    { siteId, flowType: 'get-employees' },
+    fallback
+  );
+  return result.data;
+}
+
+export async function getProjectStaffFlow(siteId: number | undefined, fallback: ProjectStaffMember[]): Promise<ProjectStaffMember[]> {
+  const result = await invokeFlowData<ProjectStaffMember[]>(
+    'getProjectStaff',
+    integrationConfig.powerAutomateFlows.getProjectStaff,
+    { siteId, flowType: 'get-project-staff' },
+    fallback
+  );
+  return result.data;
+}
+
+export async function getTrainingTopicsFlow(fallback: TrainingTopic[]): Promise<TrainingTopic[]> {
+  const result = await invokeFlowData<TrainingTopic[]>(
+    'getTrainingTopics',
+    integrationConfig.powerAutomateFlows.getTrainingTopics,
+    { flowType: 'get-training-topics' },
+    fallback
+  );
+  return result.data;
+}
+
+export async function getPpeCatalogFlow(fallback: PpeCatalogItem[]): Promise<PpeCatalogItem[]> {
+  const result = await invokeFlowData<PpeCatalogItem[]>(
+    'getPpeCatalog',
+    integrationConfig.powerAutomateFlows.getPpeCatalog,
+    { flowType: 'get-ppe-catalog' },
+    fallback
+  );
+  return result.data;
+}
+
+export async function createTrainingFlow(payload: Record<string, unknown>): Promise<{ id?: number; status: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'createTraining',
+    integrationConfig.powerAutomateFlows.createTraining,
+    { ...payload, flowType: 'create-training' },
+    payload
+  );
+  const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
+  return { id: responseId, status: result.status };
+}
+
+export async function createPpeIssueFlow(payload: Record<string, unknown>): Promise<{ id?: number; status: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'createPpeIssue',
+    integrationConfig.powerAutomateFlows.createPpeIssue,
+    { ...payload, flowType: 'create-ppe-issue' },
+    payload
+  );
+  const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
+  return { id: responseId, status: result.status };
 }
 
 export async function generateTrainingPdf(input: GenerateTrainingPdfInput): Promise<{ pdfUrl: string; status?: string }> {

@@ -48,65 +48,29 @@ function normalizeListName(listName: string): string {
 
 export class SharePointProvider {
   private readonly enabled: boolean;
-  private readonly apiBaseUrl: string;
-  private readonly accessToken?: string;
 
   constructor() {
     this.enabled = isSharePointConfigured();
-    const configuredBaseUrl = integrationConfig.sharePointApiUrl || integrationConfig.sharePointSiteUrl;
-    this.apiBaseUrl = configuredBaseUrl ? configuredBaseUrl.replace(/\/$/, '') : '';
-    this.accessToken = integrationConfig.sharePointAccessToken;
   }
 
   async createListItem(payload: { listName: string; item: Record<string, unknown> }) {
-    if (!this.enabled || !this.apiBaseUrl) {
-      return { id: Date.now(), status: 'mock-fallback' };
-    }
-
-    try {
-      const targetListName = this.resolveListName(payload.listName);
-      const endpoint = `${this.apiBaseUrl}/_api/web/lists/getbytitle('${encodeURIComponent(targetListName)}')/items`;
-      const body = {
-        ...payload.item,
-        __metadata: {
-          type: `SP.Data.${targetListName.replace(/[^A-Za-z0-9]/g, '')}ListItem`,
-        },
-      };
-      const result = await this.request<{ d?: { ID?: number } }>(endpoint, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
-      return { id: result?.d?.ID ?? Date.now(), status: 'connected' };
-    } catch (error) {
-      console.warn('SharePoint list item create failed, falling back to mock data.', error);
-      return { id: Date.now(), status: 'mock-fallback' };
-    }
+    console.info(
+      `[SharePointProvider][MockFallback] Direct SharePoint calls are disabled in frontend. list=${payload.listName}, hasSiteReference=${String(this.enabled)}`
+    );
+    return { id: Date.now(), status: 'mock-fallback' };
   }
 
   async getListItems(listName: string) {
-    if (!this.enabled || !this.apiBaseUrl) {
-      return [];
-    }
-
-    try {
-      const targetListName = this.resolveListName(listName);
-      const endpoint = `${this.apiBaseUrl}/_api/web/lists/getbytitle('${encodeURIComponent(targetListName)}')/items?$orderby=Id desc`;
-      const response = await this.request<{ d?: { results?: SharePointRecord[] } } | { value?: SharePointRecord[] } | { results?: SharePointRecord[] }>(endpoint);
-      const items = this.extractItems(response);
-      return items.map(item => this.mapListItem(targetListName, item));
-    } catch (error) {
-      console.warn('SharePoint list read failed, falling back to mock data.', error);
-      return [];
-    }
+    console.info(
+      `[SharePointProvider][MockFallback] Direct SharePoint calls are disabled in frontend. list=${listName}, hasSiteReference=${String(this.enabled)}`
+    );
+    return [];
   }
 
   private async request<T>(url: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers ?? {});
     headers.set('Accept', 'application/json;odata=verbose');
     headers.set('Content-Type', 'application/json;odata=verbose');
-    if (this.accessToken) {
-      headers.set('Authorization', `Bearer ${this.accessToken}`);
-    }
 
     const response = await fetch(url, { ...init, headers, mode: 'cors' });
     if (!response.ok) {
