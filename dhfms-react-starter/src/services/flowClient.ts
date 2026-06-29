@@ -142,9 +142,16 @@ export async function getEmployeesFlow(siteId: number | undefined, fallback: Emp
       return String(value);
     }
 
+    if (Array.isArray(value)) {
+      return value
+        .map((entry) => toDisplayText(entry))
+        .filter((entry): entry is string => Boolean(entry))
+        .join(' / ');
+    }
+
     if (typeof value === 'object') {
       const record = value as Record<string, unknown>;
-      const lookupValue = record.Value ?? record.Title ?? record.Name;
+      const lookupValue = record.Value ?? record.Title ?? record.Name ?? record.DisplayName;
       return lookupValue === undefined || lookupValue === null ? undefined : String(lookupValue);
     }
 
