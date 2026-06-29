@@ -23,9 +23,10 @@ interface Props {
   showLiftingCertificateOption?: boolean;
   showOcrSection?: boolean;
   onAdd?: () => void;
+  onRowClick?: (id: number) => void;
 }
 
-export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγραφή', rows = [], emptyTitle = 'Δεν υπάρχουν εγγραφές ακόμα', showLiftingCertificateOption = false, showOcrSection = true, onAdd }: Props) {
+export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγραφή', rows = [], emptyTitle = 'Δεν υπάρχουν εγγραφές ακόμα', showLiftingCertificateOption = false, showOcrSection = true, onAdd, onRowClick }: Props) {
   const [ocrPreviewUrl, setOcrPreviewUrl] = useState<string | null>(null);
   const [ocrFileName, setOcrFileName] = useState('');
   const [ocrStatus, setOcrStatus] = useState('');
@@ -256,7 +257,7 @@ export function GenericListPage({ title, subtitle, addLabel = 'Νέα εγγρα
       {rows.length === 0 ? <EmptyState title={emptyTitle} subtitle="Το module υπάρχει στο νέο UI foundation και θα συνδεθεί με SharePoint στο επόμενο βήμα." /> : (
         <div className="card">
           {rows.map(row => (
-            <div className="row clickable" key={row.id}>
+            <div className="row clickable" key={row.id} onClick={() => onRowClick?.(Number(row.id))}>
               <div className="row-main">
                 <div className="row-title">{row.title}</div>
                 <div className="row-subtitle">{row.subtitle}</div>

@@ -11,6 +11,7 @@ import { QrPage } from './pages/QrPage';
 import { SignaturePage } from './pages/SignaturePage';
 import { TrainingPage } from './pages/TrainingPage';
 import { VehicleFormPage } from './pages/VehicleFormPage';
+import { VehicleProfilePage } from './pages/VehicleProfilePage';
 import { dataProvider } from './services/dataProvider';
 import type { Employee, EvidenceDocument, PageKey, PpeIssue, Site, TrainingSession, Vehicle } from './types/models';
 
@@ -23,6 +24,7 @@ export default function App() {
   const [documents, setDocuments] = useState<EvidenceDocument[]>([]);
   const [ppeIssues, setPpeIssues] = useState<PpeIssue[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | undefined>(1);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<number | undefined>();
   const [profileTab, setProfileTab] = useState<'ppe' | 'training' | 'medical' | 'licenses'>('ppe');
   const [selectedSiteId, setSelectedSiteId] = useState<number | 'all'>('all');
 
@@ -40,6 +42,7 @@ export default function App() {
 
   const selectedSite = useMemo(() => selectedSiteId === 'all' ? undefined : sites.find(s => s.id === selectedSiteId), [sites, selectedSiteId]);
   const selectedEmployee = useMemo(() => employees.find(e => e.id === selectedEmployeeId), [employees, selectedEmployeeId]);
+  const selectedVehicle = useMemo(() => vehicles.find(v => v.id === selectedVehicleId), [vehicles, selectedVehicleId]);
   const siteEmployees = useMemo(() => selectedSiteId === 'all' ? employees : employees.filter(e => e.siteId === selectedSiteId), [employees, selectedSiteId]);
   const siteVehicles = useMemo(() => selectedSiteId === 'all' ? vehicles : vehicles.filter(v => v.siteId === selectedSiteId), [vehicles, selectedSiteId]);
   const siteTrainings = useMemo(() => selectedSiteId === 'all' ? trainings : trainings.filter(t => t.siteId === selectedSiteId), [trainings, selectedSiteId]);
@@ -80,9 +83,11 @@ export default function App() {
       case 'licenses':
         return <EvidencePage title="Άδειες / Πιστοποιήσεις" subtitle="Άδειες εργαζομένων, πιστοποιήσεις και λήξεις" />;
       case 'vehicles':
-        return <GenericListPage title="Οχήματα & Μηχανήματα" subtitle="Στόλος, έγγραφα, ασφάλειες, ΚΤΕΟ" addLabel="Νέο όχημα" showOcrSection={false} onAdd={() => setPage('vehicle-form')} rows={vehicles.map(v => ({ id: v.id, title: `${v.plate} · ${v.type}`, subtitle: `${v.code} · ${v.owner}`, status: v.status, qrType: 'VEH', qrLabel: v.plate }))} />;
+        return <GenericListPage title="Οχήματα & Μηχανήματα" subtitle="Στόλος, έγγραφα, ασφάλειες, ΚΤΕΟ" addLabel="Νέο όχημα" showOcrSection={false} onAdd={() => setPage('vehicle-form')} onRowClick={(id) => { setSelectedVehicleId(id); setPage('vehicle-profile'); }} rows={vehicles.map(v => ({ id: v.id, title: `${v.plate} · ${v.type}`, subtitle: `${v.code} · ${v.owner}`, status: v.status, qrType: 'VEH', qrLabel: v.plate }))} />;
       case 'vehicle-form':
         return <VehicleFormPage onBack={() => setPage('vehicles')} onSave={handleCreateVehicle} sites={sites} selectedSiteId={selectedSiteId} ownerOptions={vehicleOwnerOptions} typeOptions={vehicleTypeOptions} />;
+      case 'vehicle-profile':
+        return <VehicleProfilePage vehicle={selectedVehicle} documents={documents.filter(document => document.entityType === 'vehicle' && document.entityId === selectedVehicleId)} onBack={() => setPage('vehicles')} />;
       case 'equipment':
         return <GenericListPage title="Εξοπλισμός" subtitle="Εργαλεία, πιστοποιητικά, QR και έλεγχοι" addLabel="Νέο στοιχείο" showOcrSection={false} rows={[{ id: 1, title: 'Ανυψωτικό μηχάνημα', subtitle: 'EQP-001 · Εργοτάξιο Κιλκίς', status: 'Active', qrType: 'EQP', qrLabel: 'Ανυψωτικό μηχάνημα' }]} />;
       case 'sites':

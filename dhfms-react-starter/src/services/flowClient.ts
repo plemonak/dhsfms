@@ -433,7 +433,7 @@ export async function ocrDocumentPlaceholder(input: {
   vehicleId?: number;
   vehiclePlate?: string;
   fileContentBase64?: string;
-}): Promise<{ text: string; confidence: number; status?: string; documentType?: string; fileName?: string }> {
+}): Promise<{ text: string; confidence: number; status?: string; documentType?: string; fileName?: string; fullTextAnnotation?: unknown }> {
   const result = await invokeFlowData<Record<string, unknown>>(
     'ocrDocument',
     integrationConfig.powerAutomateFlows.ocrDocument,
@@ -453,5 +453,6 @@ export async function ocrDocumentPlaceholder(input: {
     status: typeof result.data.status === 'string' ? result.data.status : result.status,
     documentType: typeof result.data.documentType === 'string' ? result.data.documentType : input.documentType,
     fileName: typeof result.data.fileName === 'string' ? result.data.fileName : input.fileName,
+    fullTextAnnotation: result.data.fullTextAnnotation,
   };
 }

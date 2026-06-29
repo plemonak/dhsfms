@@ -1,0 +1,9 @@
+{
+  "forwardPorts": [5180],
+  "portsAttributes": {
+    "5180": {
+      "label": "DYKAT HSEFMS React App",
+      "onAutoForward": "openBrowser"
+    }
+  }
+}

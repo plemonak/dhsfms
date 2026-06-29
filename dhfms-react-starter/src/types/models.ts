@@ -39,11 +39,16 @@ export interface Vehicle {
   code: string;
   plate: string;
   type: string;
+  chassisNumber?: string;
+  manufacturer?: string;
+  model?: string;
   owner: string;
   siteId: number;
   status: Status;
   insuranceExpiry?: string;
   kteoExpiry?: string;
+  emissionsCardExpiry?: string;
+  liftingCertificateExpiry?: string;
 }
 
 export interface TrainingSession {

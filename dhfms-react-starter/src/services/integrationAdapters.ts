@@ -19,6 +19,7 @@ import { documents, trainings } from '../data/mockData';
 import type { Employee, PpeCatalogItem, ProjectStaffMember, TrainingTopic } from '../types/models';
 import type { EvidenceDocument, TrainingSession } from '../types/models';
 import QRCode from 'qrcode';
+import { createWorker } from 'tesseract.js';
 
 export interface SharePointListItemPayload {
   listName: string;
@@ -28,6 +29,10 @@ export interface SharePointListItemPayload {
 export interface OcrResult {
   text: string;
   confidence: number;
+  status?: string;
+  documentType?: string;
+  fileName?: string;
+  fullTextAnnotation?: unknown;
 }
 
 export interface SignaturePayload {
@@ -140,20 +145,31 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 
 export class OcrAdapter {
   async extractText(file: File, options: { documentType?: string; vehicleId?: number; vehiclePlate?: string } = {}): Promise<OcrResult> {
-    if (!integrationConfig.powerAutomateFlows.ocrDocument) {
-      return { text: 'OCR placeholder – configure VITE_POWERAUTOMATE_FLOW_OCR_DOCUMENT to enable extraction.', confidence: 0.1 };
+    if (integrationConfig.powerAutomateFlows.ocrDocument) {
+      const fileContentBase64 = arrayBufferToBase64(await file.arrayBuffer());
+
+      return ocrDocumentPlaceholder({
+        fileName: file.name,
+        contentType: file.type,
+        documentType: options.documentType,
+        vehicleId: options.vehicleId,
+        vehiclePlate: options.vehiclePlate,
+        fileContentBase64,
+      });
     }
 
-    const fileContentBase64 = arrayBufferToBase64(await file.arrayBuffer());
+    const worker = await createWorker('ell+eng');
 
-    return ocrDocumentPlaceholder({
-      fileName: file.name,
-      contentType: file.type,
-      documentType: options.documentType,
-      vehicleId: options.vehicleId,
-      vehiclePlate: options.vehiclePlate,
-      fileContentBase64,
-    });
+    try {
+      const result = await worker.recognize(file);
+
+      return {
+        text: result.data.text,
+        confidence: result.data.confidence / 100,
+      };
+    } finally {
+      await worker.terminate();
+    }
   }
 }
 
