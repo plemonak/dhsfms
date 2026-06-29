@@ -111,6 +111,7 @@ async function invokeFlowData<T>(
       if (mapped !== undefined) {
         return { data: mapped, status: 'completed' };
       }
+      return { data: data as T, status: 'completed' };
     }
 
     throw new Error('Flow response did not contain expected payload.');
@@ -327,6 +328,17 @@ export async function getPpeCatalogFlow(fallback: PpeCatalogItem[]): Promise<Ppe
     fallback
   );
   return result.data;
+}
+
+export async function createEmployeeFlow(payload: Record<string, unknown>): Promise<{ id?: number; status: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'createEmployee',
+    integrationConfig.powerAutomateFlows.createEmployee,
+    { ...payload, flowType: 'create-employee' },
+    payload
+  );
+  const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
+  return { id: responseId, status: result.status };
 }
 
 export async function createTrainingFlow(payload: Record<string, unknown>): Promise<{ id?: number; status: string }> {

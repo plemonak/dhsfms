@@ -4,11 +4,15 @@ import { FormField } from '../components/FormField';
 import { PageHeader } from '../components/PageHeader';
 import { SectionCard } from '../components/SectionCard';
 import { dataProvider } from '../services/dataProvider';
-import type { Employee } from '../types/models';
+import type { Employee, Site } from '../types/models';
 
 interface Props {
   onBack: () => void;
   onSave: (employee: Omit<Employee, 'id' | 'fullName'>) => void;
+  sites: Site[];
+  selectedSiteId: number | 'all';
+  positionOptions: string[];
+  companyOptions: string[];
 }
 
 type EmployeeFormState = Omit<Employee, 'id' | 'fullName'> & {
@@ -26,12 +30,12 @@ function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export function EmployeeFormPage({ onBack, onSave }: Props) {
+export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positionOptions, companyOptions }: Props) {
   const [form, setForm] = useState<EmployeeFormState>({
     employeeNo: 'AUTO',
     firstName: '',
     lastName: '',
-    company: 'DYKAT',
+    company: 'ΔΥΚΑΤ',
     personType: 'DYKAT employee',
     position: '',
     siteId: 2,
@@ -172,45 +176,70 @@ export function EmployeeFormPage({ onBack, onSave }: Props) {
           </div>
         </SectionCard>
 
-        <SectionCard title="Βασικά στοιχεία">
-          <div className="form-grid">
-            <FormField label="Τύπος προσωπικού">
-              <select className="field-select" value={form.personType} onChange={e => update('personType', e.target.value)}>
-                <option>DYKAT employee</option>
-                <option>Subcontractor</option>
-                <option>External</option>
-              </select>
-            </FormField>
-            <FormField label="Εταιρεία">
-              <input className="field-input" value={form.company} onChange={e => update('company', e.target.value)} />
-            </FormField>
-            <FormField label="Όνομα">
-              <input className="field-input" value={form.firstName} onChange={e => update('firstName', e.target.value)} />
-            </FormField>
-            <FormField label="Επώνυμο">
-              <input className="field-input" value={form.lastName} onChange={e => update('lastName', e.target.value)} />
-            </FormField>
-            <FormField label="Πατρώνυμο">
-              <input className="field-input" value={form.fatherName} onChange={e => update('fatherName', e.target.value)} />
-            </FormField>
-            <FormField label="Ημερομηνία γέννησης">
-              <input type="date" className="field-input" value={form.birthDate} onChange={e => update('birthDate', e.target.value)} />
-            </FormField>
-            <FormField label="Φύλο">
-              <input className="field-input" value={form.gender} onChange={e => update('gender', e.target.value)} />
-            </FormField>
-            <FormField label="Αρχή έκδοσης">
-              <input className="field-input" value={form.issuingAuthority} onChange={e => update('issuingAuthority', e.target.value)} />
-            </FormField>
-            <FormField label="Θέση / ειδικότητα">
-              <input className="field-input" value={form.position} onChange={e => update('position', e.target.value)} />
-            </FormField>
-            <FormField label="Ημερομηνία πρόσληψης">
-              <input type="date" className="field-input" value={form.hireDate} onChange={e => update('hireDate', e.target.value)} />
-            </FormField>
-          </div>
-        </SectionCard>
+          <SectionCard title="Βασικά στοιχεία">
+            <div className="form-grid">
+              <FormField label="Τύπος προσωπικού">
+                <select className="field-select" value={form.personType} onChange={e => update('personType', e.target.value)}>
+                  <option>DYKAT employee</option>
+                  <option>Subcontractor</option>
+                  <option>External</option>
+                </select>
+              </FormField>
 
+              <FormField label="Εταιρεία">
+                <select className="field-select" value={form.company} onChange={e => update('company', e.target.value)}>
+                  {companyOptions.map(company => (
+                    <option key={company} value={company}>{company}</option>
+                  ))}
+                </select>
+              </FormField>
+
+              <FormField label="Όνομα">
+                <input className="field-input" value={form.firstName} onChange={e => update('firstName', e.target.value)} />
+              </FormField>
+
+              <FormField label="Επώνυμο">
+                <input className="field-input" value={form.lastName} onChange={e => update('lastName', e.target.value)} />
+              </FormField>
+
+              <FormField label="Πατρώνυμο">
+                <input className="field-input" value={form.fatherName} onChange={e => update('fatherName', e.target.value)} />
+              </FormField>
+
+              <FormField label="Ημερομηνία γέννησης">
+                <input type="date" className="field-input" value={form.birthDate} onChange={e => update('birthDate', e.target.value)} />
+              </FormField>
+
+              <FormField label="Φύλο">
+                <input className="field-input" value={form.gender} onChange={e => update('gender', e.target.value)} />
+              </FormField>
+
+              <FormField label="Αρχή έκδοσης">
+                <input className="field-input" value={form.issuingAuthority} onChange={e => update('issuingAuthority', e.target.value)} />
+              </FormField>
+
+              <FormField label="Θέση / ειδικότητα">
+                <select className="field-select" value={form.position} onChange={e => update('position', e.target.value)}>
+                  <option value="">Επιλογή ειδικότητας</option>
+                  {positionOptions.map(position => (
+                    <option key={position} value={position}>{position}</option>
+                  ))}
+                </select>
+              </FormField>
+
+              <FormField label="Εργοτάξιο">
+                <select className="field-select" value={form.siteId} onChange={e => update('siteId', Number(e.target.value))}>
+                  {sites.map(site => (
+                    <option key={site.id} value={site.id}>{site.name}</option>
+                  ))}
+                </select>
+              </FormField>
+
+              <FormField label="Ημερομηνία πρόσληψης">
+                <input type="date" className="field-input" value={form.hireDate} onChange={e => update('hireDate', e.target.value)} />
+              </FormField>
+            </div>
+          </SectionCard>
         <SectionCard title="Επικοινωνία & ταυτοποίηση">
           <div className="form-grid">
             <FormField label="Κινητό">

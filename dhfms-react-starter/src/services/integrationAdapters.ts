@@ -1,5 +1,6 @@
 import { integrationConfig, isFlowConfigured, isSharePointConfigured } from './integrationConfig';
 import {
+  createEmployeeFlow,
   createPpeIssueFlow,
   createQrPrintPayload,
   createTrainingFlow,

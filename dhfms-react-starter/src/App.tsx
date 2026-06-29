@@ -42,6 +42,8 @@ export default function App() {
   const siteEmployees = useMemo(() => selectedSiteId === 'all' ? employees : employees.filter(e => e.siteId === selectedSiteId), [employees, selectedSiteId]);
   const siteVehicles = useMemo(() => selectedSiteId === 'all' ? vehicles : vehicles.filter(v => v.siteId === selectedSiteId), [vehicles, selectedSiteId]);
   const siteTrainings = useMemo(() => selectedSiteId === 'all' ? trainings : trainings.filter(t => t.siteId === selectedSiteId), [trainings, selectedSiteId]);
+  const employeePositionOptions = useMemo(() => Array.from(new Set(employees.flatMap(employee => employee.position.split(' / ').map(position => position.trim()).filter(Boolean)))).sort(), [employees]);
+  const employeeCompanyOptions = useMemo(() => Array.from(new Set(['DYKAT', ...employees.map(employee => employee.company).filter(Boolean)])).sort(), [employees]);
 
   async function handleCreateEmployee(employee: Omit<Employee, 'id' | 'fullName'>) {
     const created = await dataProvider.createEmployee(employee);
@@ -59,7 +61,7 @@ export default function App() {
       case 'employee-profile':
         return <EmployeeProfilePage employee={selectedEmployee} employees={employees} trainings={trainings} documents={documents.filter(d => d.entityType === 'employee' && d.entityId === selectedEmployeeId)} ppeIssues={ppeIssues.filter(p => p.employeeId === selectedEmployeeId)} activeTab={profileTab} onTabChange={setProfileTab} onBack={() => setPage('employees')} onEdit={() => setPage('employee-form')} />;
       case 'employee-form':
-        return <EmployeeFormPage onBack={() => setPage(selectedEmployeeId ? 'employee-profile' : 'employees')} onSave={handleCreateEmployee} />;
+        return <EmployeeFormPage onBack={() => setPage(selectedEmployeeId ? 'employee-profile' : 'employees')} onSave={handleCreateEmployee} sites={sites} selectedSiteId={selectedSiteId} positionOptions={employeePositionOptions} companyOptions={employeeCompanyOptions} />;
       case 'training':
         return <TrainingPage trainings={siteTrainings} employees={siteEmployees} documents={documents.filter(document => document.entityType === 'training')} />;
       case 'ppe':
