@@ -406,11 +406,28 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onEdit, onAddDo
 
     if (!file || !vehicle || !category) return;
 
-    setOcrStatus('Ανάγνωση εγγράφου…');
+    setOcrStatus(category.key === 'insurance' ? 'Ανάγνωση ασφαλιστηρίου…' : 'Ανέβασμα εγγράφου…');
     setOcrDetails('');
     setPendingDocument(null);
 
     try {
+      if (category.key !== 'insurance') {
+        const uploadedEvidence = await dataProvider.uploadEvidence(file, getVehicleEvidenceFolder(vehicle, category));
+
+        onAddDocument({
+          entityType: 'vehicle',
+          entityId: vehicle.id,
+          documentType: category.title,
+          status: 'Active',
+          url: uploadedEvidence.url,
+          fileName: uploadedEvidence.fileName,
+        });
+
+        setOcrStatus(uploadedEvidence.status === 'mock-fallback' ? 'Το έγγραφο καταχωρήθηκε προσωρινά στην καρτέλα.' : 'Το έγγραφο ανέβηκε και καταχωρήθηκε στην καρτέλα.');
+        setOcrDetails(category.title);
+        return;
+      }
+
       const result = await dataProvider.extractDocumentText(file, {
         documentType: category.title,
         vehicleId: vehicle.id,
@@ -418,50 +435,31 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onEdit, onAddDo
       });
 
       const text = result.text ?? '';
+      const parsed = parseInsuranceOcr(text, vehicle);
 
-      if (category.key === 'insurance') {
-        const parsed = parseInsuranceOcr(text, vehicle);
-
-        setPendingDocument({
-          entityType: 'vehicle',
-          entityId: vehicle.id,
-          documentType: 'Ασφάλεια',
-          issueDate: parsed.startDate,
-          expiryDate: parsed.expiryDate,
-          status: 'Active',
-          url: URL.createObjectURL(file),
-          fileName: file.name,
-          sourceFile: file,
-          evidenceFolderPath: getVehicleEvidenceFolder(vehicle, category),
-          matchedVehicle: parsed.matchedVehicle,
-          matchedBy: parsed.matchedBy,
-          vehicleMatchConfirmed: parsed.matchedVehicle,
-          warning: parsed.warning,
-        });
-
-        setOcrStatus('Διαβάστηκε ασφαλιστήριο. Επιβεβαιώστε ή διορθώστε τις ημερομηνίες πριν την καταχώρηση.');
-        setOcrDetails([
-          `Αρχείο: ${file.name}`,
-          `Ταύτιση με όχημα: ${parsed.matchedVehicle ? `Ναι (${parsed.matchedBy === 'chassis' ? 'αριθμός πλαισίου' : 'πινακίδα/αριθμός άδειας'})` : 'Όχι / απαιτείται έλεγχος'}`,
-          parsed.warning,
-        ].filter(Boolean).join(' · '));
-
-        return;
-      }
-
-      const uploadedEvidence = await dataProvider.uploadEvidence(file, getVehicleEvidenceFolder(vehicle, category));
-
-      onAddDocument({
+      setPendingDocument({
         entityType: 'vehicle',
         entityId: vehicle.id,
-        documentType: category.title,
+        documentType: 'Ασφάλεια',
+        issueDate: parsed.startDate,
+        expiryDate: parsed.expiryDate,
         status: 'Active',
-        url: uploadedEvidence.url,
-        fileName: uploadedEvidence.fileName,
+        url: URL.createObjectURL(file),
+        fileName: file.name,
+        sourceFile: file,
+        evidenceFolderPath: getVehicleEvidenceFolder(vehicle, category),
+        matchedVehicle: parsed.matchedVehicle,
+        matchedBy: parsed.matchedBy,
+        vehicleMatchConfirmed: parsed.matchedVehicle,
+        warning: parsed.warning,
       });
 
-      setOcrStatus(uploadedEvidence.status === 'mock-fallback' ? 'Το έγγραφο καταχωρήθηκε προσωρινά στην καρτέλα.' : 'Το έγγραφο ανέβηκε και καταχωρήθηκε στην καρτέλα.');
-      setOcrDetails(category.title);
+      setOcrStatus('Διαβάστηκε ασφαλιστήριο. Επιβεβαιώστε ή διορθώστε τις ημερομηνίες πριν την καταχώρηση.');
+      setOcrDetails([
+        `Αρχείο: ${file.name}`,
+        `Ταύτιση με όχημα: ${parsed.matchedVehicle ? `Ναι (${parsed.matchedBy === 'chassis' ? 'αριθμός πλαισίου' : 'πινακίδα/αριθμός άδειας'})` : 'Όχι / απαιτείται έλεγχος'}`,
+        parsed.warning,
+      ].filter(Boolean).join(' · '));
     } catch (error) {
       console.warn('Vehicle document OCR/upload failed.', error);
       setOcrStatus('Δεν ήταν δυνατή η ανάγνωση/καταχώρηση του εγγράφου.');
