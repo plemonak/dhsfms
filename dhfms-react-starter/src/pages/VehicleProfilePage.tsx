@@ -23,12 +23,15 @@ type InsuranceOcrResult = {
   startDate?: string;
   expiryDate?: string;
   matchedVehicle: boolean;
+  matchedBy?: 'plate' | 'chassis';
   warning?: string;
 };
 
 type PendingVehicleDocument = Omit<EvidenceDocument, 'id'> & {
   fileName?: string;
   matchedVehicle?: boolean;
+  matchedBy?: 'plate' | 'chassis';
+  vehicleMatchConfirmed?: boolean;
   warning?: string;
 };
 
@@ -135,6 +138,7 @@ function parseInsuranceOcr(text: string, vehicle: Vehicle): InsuranceOcrResult {
   const matchedPlate = Boolean(normalizedPlate && normalizedText.includes(normalizedPlate));
   const matchedChassis = Boolean(normalizedChassis && normalizedText.includes(normalizedChassis));
   const matchedVehicle = matchedPlate || matchedChassis;
+  const matchedBy = matchedPlate ? 'plate' : matchedChassis ? 'chassis' : undefined;
 
   const allDates = extractAllIsoDates(text);
 
@@ -164,6 +168,7 @@ function parseInsuranceOcr(text: string, vehicle: Vehicle): InsuranceOcrResult {
     startDate,
     expiryDate,
     matchedVehicle,
+    matchedBy,
     warning: matchedVehicle
       ? undefined
       : 'Δεν επιβεβαιώθηκε αυτόματα ταύτιση με αριθμό άδειας/πινακίδα ή αριθμό πλαισίου.',
@@ -234,8 +239,18 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
     ];
   }, [vehicle]);
 
+  const currentInsuranceDocument = useMemo(() => {
+    const insuranceCategory = categories.find(category => category.key === 'insurance');
+    if (!insuranceCategory) return undefined;
+    return sortDocuments(documents.filter(document => documentMatches(document, insuranceCategory.keywords)))[0];
+  }, [categories, documents]);
+
   function confirmPendingDocument() {
     if (!pendingDocument) return;
+    if (!pendingDocument.issueDate || !pendingDocument.expiryDate || !pendingDocument.vehicleMatchConfirmed) {
+      setOcrStatus('Συμπληρώστε ημερομηνίες και επιβεβαιώστε ότι το ασφαλιστήριο αφορά το συγκεκριμένο όχημα.');
+      return;
+    }
 
     onAddDocument({
       entityType: pendingDocument.entityType,
@@ -287,13 +302,15 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
           url: evidenceUrl,
           fileName: file.name,
           matchedVehicle: parsed.matchedVehicle,
+          matchedBy: parsed.matchedBy,
+          vehicleMatchConfirmed: parsed.matchedVehicle,
           warning: parsed.warning,
         });
 
         setOcrStatus('Διαβάστηκε ασφαλιστήριο. Επιβεβαιώστε ή διορθώστε τις ημερομηνίες πριν την καταχώρηση.');
         setOcrDetails([
           `Αρχείο: ${file.name}`,
-          `Ταύτιση με όχημα: ${parsed.matchedVehicle ? 'Ναι' : 'Όχι / απαιτείται έλεγχος'}`,
+          `Ταύτιση με όχημα: ${parsed.matchedVehicle ? `Ναι (${parsed.matchedBy === 'chassis' ? 'αριθμός πλαισίου' : 'πινακίδα/αριθμός άδειας'})` : 'Όχι / απαιτείται έλεγχος'}`,
           parsed.warning,
         ].filter(Boolean).join(' · '));
 
@@ -353,7 +370,7 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
               <strong>Αριθμός άδειας / πινακίδα:</strong> {vehicle.plate || '—'} · <strong>Αριθμός πλαισίου:</strong> {vehicle.chassisNumber || '—'} · <strong>Εργοστάσιο:</strong> {vehicle.manufacturer || '—'} · <strong>Τύπος/μοντέλο:</strong> {vehicle.model || '—'}
             </div>
             <div className="row-subtitle" style={{ marginTop: 6 }}>
-              <strong>Λήξη ασφάλειας:</strong> {vehicle.insuranceExpiry || 'Δεν έχει καταχωρηθεί'}
+              <strong>Έναρξη ασφάλειας:</strong> {currentInsuranceDocument?.issueDate || 'Δεν έχει καταχωρηθεί'} · <strong>Λήξη ασφάλειας:</strong> {vehicle.insuranceExpiry || currentInsuranceDocument?.expiryDate || 'Δεν έχει καταχωρηθεί'}
             </div>
           </div>
         </div>
@@ -367,6 +384,13 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
 
           {pendingDocument && (
             <div className="form" style={{ marginTop: 12 }}>
+              <div className="row-subtitle" style={{ marginBottom: 10 }}>
+                <strong>Έλεγχος ταύτισης:</strong>{' '}
+                {pendingDocument.matchedVehicle
+                  ? `Επιβεβαιώθηκε αυτόματα με ${pendingDocument.matchedBy === 'chassis' ? 'αριθμό πλαισίου' : 'πινακίδα/αριθμό άδειας'}.`
+                  : 'Δεν επιβεβαιώθηκε αυτόματα. Ελέγξτε το έγγραφο πριν την καταχώρηση.'}
+              </div>
+
               <div className="form-grid">
                 <label>
                   <span>Έναρξη ασφάλισης</span>
@@ -389,8 +413,24 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
                 </label>
               </div>
 
+              <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(pendingDocument.vehicleMatchConfirmed)}
+                  onChange={e => setPendingDocument(prev => prev ? { ...prev, vehicleMatchConfirmed: e.target.checked } : prev)}
+                />
+                <span className="row-subtitle">
+                  Επιβεβαιώνω ότι το ασφαλιστήριο αφορά το συγκεκριμένο όχημα / μηχάνημα ({vehicle.plate || vehicle.code}).
+                </span>
+              </label>
+
               <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                <button className="primary-btn" type="button" onClick={confirmPendingDocument}>
+                <button
+                  className="primary-btn"
+                  type="button"
+                  onClick={confirmPendingDocument}
+                  disabled={!pendingDocument.issueDate || !pendingDocument.expiryDate || !pendingDocument.vehicleMatchConfirmed}
+                >
                   Επιβεβαίωση & καταχώρηση
                 </button>
                 <button className="secondary-btn" type="button" onClick={() => setPendingDocument(null)}>
