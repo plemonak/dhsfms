@@ -1,5 +1,5 @@
 import { ChangeEvent, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, FileText, History, Pencil, Upload } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, FileText, History, Pencil, Upload } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
 import type { EvidenceDocument, Vehicle } from '../types/models';
 
@@ -257,6 +257,7 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onEdit, onAddDo
   const [ocrStatus, setOcrStatus] = useState('');
   const [ocrDetails, setOcrDetails] = useState('');
   const [pendingDocument, setPendingDocument] = useState<PendingVehicleDocument | null>(null);
+  const [showNotApplicableDocuments, setShowNotApplicableDocuments] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const categories = useMemo<VehicleDocumentCategory[]>(() => {
@@ -356,6 +357,16 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onEdit, onAddDo
     if (!insuranceCategory) return undefined;
     return sortDocuments(documents.filter(document => documentMatches(document, insuranceCategory.keywords)))[0];
   }, [categories, documents]);
+
+  const hiddenNotApplicableCount = useMemo(
+    () => categories.filter(category => !category.applicable && category.key !== 'other').length,
+    [categories]
+  );
+
+  const visibleCategories = useMemo(
+    () => categories.filter(category => showNotApplicableDocuments || category.applicable || category.key === 'other'),
+    [categories, showNotApplicableDocuments]
+  );
 
   async function confirmPendingDocument() {
     if (!pendingDocument) return;
@@ -596,12 +607,27 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onEdit, onAddDo
       )}
 
       <div className="card">
-        <h2>Έγγραφα συμμόρφωσης</h2>
-        <p className="row-subtitle">
-          Η τρέχουσα έκδοση εμφανίζεται πρώτη. Τα παλαιά/ληγμένα έγγραφα διατηρούνται στο ιστορικό. Κάθε νέο upload δημιουργεί νέα εγγραφή.
-        </p>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <h2>Έγγραφα συμμόρφωσης</h2>
+            <p className="row-subtitle">
+              Η τρέχουσα έκδοση εμφανίζεται πρώτη. Τα παλαιά/ληγμένα έγγραφα διατηρούνται στο ιστορικό. Κάθε νέο upload δημιουργεί νέα εγγραφή.
+            </p>
+          </div>
 
-        {categories.map(category => {
+          {hiddenNotApplicableCount > 0 && (
+            <button
+              className="secondary-btn"
+              type="button"
+              onClick={() => setShowNotApplicableDocuments(prev => !prev)}
+            >
+              {showNotApplicableDocuments ? <EyeOff size={17} /> : <Eye size={17} />}
+              {showNotApplicableDocuments ? 'Απόκρυψη μη απαιτούμενων' : `Εμφάνιση μη απαιτούμενων (${hiddenNotApplicableCount})`}
+            </button>
+          )}
+        </div>
+
+        {visibleCategories.map(category => {
           const categoryDocuments = sortDocuments(documents.filter(document => documentMatches(document, category.keywords)));
           const currentDocument = categoryDocuments[0];
           const historyDocuments = categoryDocuments.slice(1);
