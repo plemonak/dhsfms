@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "node scripts/dev-codespace.mjs",
+    "dev:vite": "vite --host 0.0.0.0 --port 5180 --strictPort",
     "build": "tsc && vite build",
     "doctor:integrations": "node scripts/doctor-integrations.mjs",
     "env:write": "node scripts/write-env-from-secrets.mjs",
