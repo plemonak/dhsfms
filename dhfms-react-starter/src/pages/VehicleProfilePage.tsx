@@ -29,6 +29,8 @@ type InsuranceOcrResult = {
 
 type PendingVehicleDocument = Omit<EvidenceDocument, 'id'> & {
   fileName?: string;
+  sourceFile?: File;
+  evidenceFolderPath?: string;
   matchedVehicle?: boolean;
   matchedBy?: 'plate' | 'chassis';
   vehicleMatchConfirmed?: boolean;
@@ -220,6 +222,11 @@ function parseInsuranceOcr(text: string, vehicle: Vehicle): InsuranceOcrResult {
   };
 }
 
+function getVehicleEvidenceFolder(vehicle: Vehicle, category: VehicleDocumentCategory): string {
+  const vehicleFolder = vehicle.plate || vehicle.code || String(vehicle.id);
+  return `Vehicles/${vehicleFolder}/${category.key}`;
+}
+
 export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }: VehicleProfilePageProps) {
   const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
   const [uploadCategoryKey, setUploadCategoryKey] = useState<string | null>(null);
@@ -290,12 +297,19 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
     return sortDocuments(documents.filter(document => documentMatches(document, insuranceCategory.keywords)))[0];
   }, [categories, documents]);
 
-  function confirmPendingDocument() {
+  async function confirmPendingDocument() {
     if (!pendingDocument) return;
     if (!pendingDocument.issueDate || !pendingDocument.expiryDate || !pendingDocument.vehicleMatchConfirmed) {
       setOcrStatus('Συμπληρώστε ημερομηνίες και επιβεβαιώστε ότι το ασφαλιστήριο αφορά το συγκεκριμένο όχημα.');
       return;
     }
+
+    const uploadedEvidence = pendingDocument.sourceFile
+      ? await dataProvider.uploadEvidence(
+          pendingDocument.sourceFile,
+          pendingDocument.evidenceFolderPath ?? `Vehicles/${pendingDocument.entityId}/${pendingDocument.documentType}`
+        )
+      : undefined;
 
     onAddDocument({
       entityType: pendingDocument.entityType,
@@ -304,10 +318,11 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
       issueDate: pendingDocument.issueDate,
       expiryDate: pendingDocument.expiryDate,
       status: pendingDocument.expiryDate && isExpired(pendingDocument.expiryDate) ? 'Expired' : 'Active',
-      url: pendingDocument.url,
+      url: uploadedEvidence?.url ?? pendingDocument.url,
+      fileName: uploadedEvidence?.fileName ?? pendingDocument.fileName,
     });
 
-    setOcrStatus('Το έγγραφο καταχωρήθηκε μετά από επιβεβαίωση χρήστη.');
+    setOcrStatus(uploadedEvidence?.status === 'mock-fallback' ? 'Το έγγραφο καταχωρήθηκε προσωρινά μετά από επιβεβαίωση χρήστη.' : 'Το έγγραφο ανέβηκε και καταχωρήθηκε μετά από επιβεβαίωση χρήστη.');
     setOcrDetails('');
     setPendingDocument(null);
   }
@@ -332,7 +347,6 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
       });
 
       const text = result.text ?? '';
-      const evidenceUrl = URL.createObjectURL(file);
 
       if (category.key === 'insurance') {
         const parsed = parseInsuranceOcr(text, vehicle);
@@ -344,8 +358,10 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
           issueDate: parsed.startDate,
           expiryDate: parsed.expiryDate,
           status: 'Active',
-          url: evidenceUrl,
+          url: URL.createObjectURL(file),
           fileName: file.name,
+          sourceFile: file,
+          evidenceFolderPath: getVehicleEvidenceFolder(vehicle, category),
           matchedVehicle: parsed.matchedVehicle,
           matchedBy: parsed.matchedBy,
           vehicleMatchConfirmed: parsed.matchedVehicle,
@@ -362,15 +378,18 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
         return;
       }
 
+      const uploadedEvidence = await dataProvider.uploadEvidence(file, getVehicleEvidenceFolder(vehicle, category));
+
       onAddDocument({
         entityType: 'vehicle',
         entityId: vehicle.id,
         documentType: category.title,
         status: 'Active',
-        url: evidenceUrl,
+        url: uploadedEvidence.url,
+        fileName: uploadedEvidence.fileName,
       });
 
-      setOcrStatus('Το έγγραφο καταχωρήθηκε προσωρινά στην καρτέλα.');
+      setOcrStatus(uploadedEvidence.status === 'mock-fallback' ? 'Το έγγραφο καταχωρήθηκε προσωρινά στην καρτέλα.' : 'Το έγγραφο ανέβηκε και καταχωρήθηκε στην καρτέλα.');
       setOcrDetails(category.title);
     } catch (error) {
       console.warn('Vehicle document OCR/upload failed.', error);

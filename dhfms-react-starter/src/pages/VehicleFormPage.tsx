@@ -6,7 +6,9 @@ import { SectionCard } from '../components/SectionCard';
 import { dataProvider } from '../services/dataProvider';
 import type { EvidenceDocument, Site, Vehicle } from '../types/models';
 
-export type InitialVehicleDocumentDraft = Pick<EvidenceDocument, 'documentType' | 'fileName' | 'status' | 'url'>;
+export type InitialVehicleDocumentDraft = Pick<EvidenceDocument, 'documentType' | 'fileName' | 'status' | 'url'> & {
+  sourceFile?: File;
+};
 
 interface Props {
   onBack: () => void;
@@ -580,6 +582,7 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
           fileName: ocrSourceFile.name,
           status: 'Active' as EvidenceDocument['status'],
           url: URL.createObjectURL(ocrSourceFile),
+          sourceFile: ocrSourceFile,
         }
       : undefined;
 

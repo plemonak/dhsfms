@@ -22,6 +22,7 @@ export interface IDataProvider {
   triggerTrainingPdf(input: { trainingSessionId: number; trainingTitle: string; trainerName: string; trainerSignature: string; participantsJson: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
   generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
   generateEquipmentAssignmentPdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
+  uploadEvidence(file: File, folderPath: string): Promise<{ url: string; status?: string; fileName: string }>;
   extractDocumentText(file: File, options?: { documentType?: string; vehicleId?: number; vehiclePlate?: string }): Promise<{ text: string; confidence: number }>;
   captureSignature(payload: { signerName: string; documentId: string }): Promise<{ signatureUrl: string; status: 'pending' | 'completed' }>;
   generateQr(payload: string): Promise<{ qrUrl: string; payload: string }>;
@@ -188,6 +189,10 @@ export class MockDataProvider implements IDataProvider {
 
   async generateEquipmentAssignmentPdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }) {
     return this.flowAdapter.generateEquipmentAssignmentPdf(input);
+  }
+
+  async uploadEvidence(file: File, folderPath: string) {
+    return this.flowAdapter.uploadEvidence(file, folderPath);
   }
 
   async extractDocumentText(file: File, options?: { documentType?: string; vehicleId?: number; vehiclePlate?: string }) {

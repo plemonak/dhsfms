@@ -122,6 +122,19 @@ async function invokeFlowData<T>(
   }
 }
 
+async function fileToBase64(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = '';
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+
+  return btoa(binary);
+}
+
 export async function getEmployeesFlow(siteId: number | undefined, fallback: Employee[]): Promise<Employee[]> {
   const result = await invokeFlowData<Employee[]>(
     'getEmployees',
@@ -402,16 +415,18 @@ export async function generateTrainingAttendancePdf(input: GenerateTrainingAtten
 }
 
 export async function uploadEvidence(file: File, folderPath: string): Promise<{ url: string; status?: string; fileName: string }> {
+  const fallbackUrl = URL.createObjectURL(file);
   const payload = {
     fileName: file.name,
     folderPath,
     contentType: file.type || 'application/octet-stream',
+    fileContentBase64: await fileToBase64(file),
     flowType: 'upload-evidence',
   };
 
-  const result = await invokeFlow(integrationConfig.powerAutomateFlows.evidenceUpload, payload, URL.createObjectURL(file));
+  const result = await invokeFlow(integrationConfig.powerAutomateFlows.evidenceUpload, payload, fallbackUrl);
   return {
-    url: result.url ?? URL.createObjectURL(file),
+    url: result.url ?? fallbackUrl,
     status: result.status,
     fileName: file.name,
   };

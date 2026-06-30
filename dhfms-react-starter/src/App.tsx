@@ -63,11 +63,19 @@ export default function App() {
     const created = await dataProvider.createVehicle(vehicle);
 
     if (initialLicenseDocument) {
+      const folderPath = `Vehicles/${created.plate || created.code}/Άδεια`;
+      const uploaded = initialLicenseDocument.sourceFile
+        ? await dataProvider.uploadEvidence(initialLicenseDocument.sourceFile, folderPath)
+        : undefined;
+
+      const { sourceFile: _sourceFile, ...documentDraft } = initialLicenseDocument;
       const createdDocument: EvidenceDocument = {
-        ...initialLicenseDocument,
+        ...documentDraft,
         id: Date.now(),
         entityType: 'vehicle',
         entityId: created.id,
+        fileName: uploaded?.fileName ?? initialLicenseDocument.fileName,
+        url: uploaded?.url ?? initialLicenseDocument.url,
       };
 
       setDocuments(prev => [createdDocument, ...prev]);
