@@ -65,8 +65,26 @@ export interface FlowResult {
   payload?: Record<string, unknown>;
 }
 
+const FLOW_TIMEOUT_MS = 45000;
+
 function logMockFallback(operation: string, reason: string) {
   console.info(`[FlowClient][MockFallback] ${operation}: ${reason}`);
+}
+
+async function fetchFlow(endpoint: string, payload: Record<string, unknown>): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FLOW_TIMEOUT_MS);
+
+  try {
+    return await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 async function invokeFlow(endpoint: string | undefined, payload: Record<string, unknown>, fallbackUrl: string): Promise<FlowResult> {
@@ -81,11 +99,7 @@ async function invokeFlow(endpoint: string | undefined, payload: Record<string, 
   }
 
   try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    const response = await fetchFlow(endpoint, payload);
 
     if (!response.ok) {
       throw new Error(`Flow request failed with status ${response.status}`);
@@ -122,11 +136,7 @@ async function invokeFlowData<T>(
   }
 
   try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    const response = await fetchFlow(endpoint, payload);
 
     if (!response.ok) {
       throw new Error(`Flow request failed with status ${response.status}`);

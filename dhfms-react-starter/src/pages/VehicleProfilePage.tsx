@@ -375,27 +375,36 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onEdit, onAddDo
       return;
     }
 
-    const uploadedEvidence = pendingDocument.sourceFile
-      ? await dataProvider.uploadEvidence(
-          pendingDocument.sourceFile,
-          pendingDocument.evidenceFolderPath ?? `Vehicles/${pendingDocument.entityId}/${pendingDocument.documentType}`
-        )
-      : undefined;
+    setOcrStatus('Ανέβασμα ασφαλιστηρίου στο SharePoint…');
 
-    onAddDocument({
-      entityType: pendingDocument.entityType,
-      entityId: pendingDocument.entityId,
-      documentType: pendingDocument.documentType,
-      issueDate: pendingDocument.issueDate,
-      expiryDate: pendingDocument.expiryDate,
-      status: pendingDocument.expiryDate && isExpired(pendingDocument.expiryDate) ? 'Expired' : 'Active',
-      url: uploadedEvidence?.url ?? pendingDocument.url,
-      fileName: uploadedEvidence?.fileName ?? pendingDocument.fileName,
-    });
+    try {
+      const uploadedEvidence = pendingDocument.sourceFile
+        ? await dataProvider.uploadEvidence(
+            pendingDocument.sourceFile,
+            pendingDocument.evidenceFolderPath ?? `Vehicles/${pendingDocument.entityId}/${pendingDocument.documentType}`
+          )
+        : undefined;
 
-    setOcrStatus(uploadedEvidence?.status === 'mock-fallback' ? 'Το έγγραφο καταχωρήθηκε προσωρινά μετά από επιβεβαίωση χρήστη.' : 'Το έγγραφο ανέβηκε και καταχωρήθηκε μετά από επιβεβαίωση χρήστη.');
-    setOcrDetails('');
-    setPendingDocument(null);
+      onAddDocument({
+        entityType: pendingDocument.entityType,
+        entityId: pendingDocument.entityId,
+        documentType: pendingDocument.documentType,
+        issueDate: pendingDocument.issueDate,
+        expiryDate: pendingDocument.expiryDate,
+        status: pendingDocument.expiryDate && isExpired(pendingDocument.expiryDate) ? 'Expired' : 'Active',
+        url: uploadedEvidence?.url ?? pendingDocument.url,
+        fileName: uploadedEvidence?.fileName ?? pendingDocument.fileName,
+      });
+
+      setOcrStatus(uploadedEvidence?.status === 'mock-fallback'
+        ? 'Το ανέβασμα στο SharePoint δεν επιβεβαιώθηκε. Το ασφαλιστήριο φαίνεται προσωρινά μόνο σε αυτή τη συνεδρία.'
+        : 'Το ασφαλιστήριο ανέβηκε στο SharePoint και καταχωρήθηκε μετά από επιβεβαίωση χρήστη.');
+      setOcrDetails('');
+      setPendingDocument(null);
+    } catch (error) {
+      console.warn('Vehicle insurance evidence upload failed.', error);
+      setOcrStatus('Δεν ολοκληρώθηκε το ανέβασμα του ασφαλιστηρίου στο SharePoint. Ελέγξτε το upload flow και δοκιμάστε ξανά.');
+    }
   }
 
   async function handleDocumentFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -423,7 +432,9 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onEdit, onAddDo
           fileName: uploadedEvidence.fileName,
         });
 
-        setOcrStatus(uploadedEvidence.status === 'mock-fallback' ? 'Το έγγραφο καταχωρήθηκε προσωρινά στην καρτέλα.' : 'Το έγγραφο ανέβηκε και καταχωρήθηκε στην καρτέλα.');
+        setOcrStatus(uploadedEvidence.status === 'mock-fallback'
+          ? 'Το ανέβασμα στο SharePoint δεν επιβεβαιώθηκε. Το έγγραφο φαίνεται προσωρινά μόνο σε αυτή τη συνεδρία.'
+          : 'Το έγγραφο ανέβηκε στο SharePoint και καταχωρήθηκε στην καρτέλα.');
         setOcrDetails(category.title);
         return;
       }
