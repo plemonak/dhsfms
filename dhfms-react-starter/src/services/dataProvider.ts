@@ -50,12 +50,18 @@ export class MockDataProvider implements IDataProvider {
 
   async getSites(): Promise<Site[]> {
     const sitesFromSharePoint = await getSitesFlow(sites);
+    if (integrationConfig.enableRealIntegrations && integrationConfig.powerAutomateFlows.getSites) {
+      return sitesFromSharePoint;
+    }
     return sitesFromSharePoint.length > 0 ? sitesFromSharePoint : sites;
   }
 
   async getEmployees(siteId?: number): Promise<Employee[]> {
     const employeesFromSharePoint = await getEmployeesFlow(siteId, this.employeeStore);
     const filtered = siteId ? employeesFromSharePoint.filter(e => e.siteId === siteId) : employeesFromSharePoint;
+    if (integrationConfig.enableRealIntegrations && integrationConfig.powerAutomateFlows.getEmployees) {
+      return filtered;
+    }
     return filtered.length > 0 ? filtered : this.employeeStore.filter(e => (siteId ? e.siteId === siteId : true));
   }
 
@@ -107,6 +113,9 @@ export class MockDataProvider implements IDataProvider {
   async getVehicles(siteId?: number): Promise<Vehicle[]> {
     const vehiclesFromSharePoint = await getVehiclesFlow(siteId, vehicles);
     const filtered = siteId ? vehiclesFromSharePoint.filter(v => v.siteId === siteId) : vehiclesFromSharePoint;
+    if (integrationConfig.enableRealIntegrations && integrationConfig.powerAutomateFlows.getVehicles) {
+      return filtered;
+    }
     return filtered.length > 0 ? filtered : vehicles.filter(v => (siteId ? v.siteId === siteId : true));
   }
 
