@@ -46,6 +46,9 @@
 - Vehicle edit is wired in the app and data provider. SharePoint persistence requires `VITE_POWERAUTOMATE_FLOW_UPDATE_VEHICLE`; do not silently claim a permanent SharePoint save without that flow.
 - Vehicle document evidence should use the SharePoint list `VehicleDocuments` when available.
 - The upload evidence flow should create a `VehicleDocuments` list item and attach the uploaded PDF/file to that item.
+- Uploaded vehicle license/insurance documents are persisted in `VehicleDocuments` as list item attachments.
+- The app reads them back through `VITE_POWERAUTOMATE_FLOW_GET_VEHICLE_DOCUMENTS`; without that flow, documents uploaded in the current UI session may appear temporarily but will not reliably reload after refresh.
+- Generated read-back flow package: `DHFMS_GetVehicleDocuments_20260701.zip`.
 
 ## OCR State
 
@@ -80,6 +83,7 @@
 - `VITE_POWERAUTOMATE_FLOW_GET_EMPLOYEES`
 - `VITE_POWERAUTOMATE_FLOW_GET_SITES`
 - `VITE_POWERAUTOMATE_FLOW_GET_VEHICLES`
+- `VITE_POWERAUTOMATE_FLOW_GET_VEHICLE_DOCUMENTS`
 - `VITE_POWERAUTOMATE_FLOW_CREATE_VEHICLE`
 - `VITE_POWERAUTOMATE_FLOW_UPLOAD_EVIDENCE`
 - `VITE_POWERAUTOMATE_FLOW_OCR_DOCUMENT`

@@ -12,6 +12,7 @@ const requiredVars = [
 
 const optionalVars = [
   'VITE_POWERAUTOMATE_FLOW_UPDATE_VEHICLE',
+  'VITE_POWERAUTOMATE_FLOW_GET_VEHICLE_DOCUMENTS',
 ];
 
 const flowChecks = [

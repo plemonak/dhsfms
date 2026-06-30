@@ -1,5 +1,5 @@
 import { integrationConfig, isFlowConfigured } from './integrationConfig';
-import type { Employee, PpeCatalogItem, ProjectStaffMember, Site, TrainingTopic, Vehicle } from '../types/models';
+import type { Employee, EvidenceDocument, PpeCatalogItem, ProjectStaffMember, Site, TrainingTopic, Vehicle } from '../types/models';
 
 export interface GenerateTrainingPdfInput {
   trainingSessionId: number;
@@ -314,6 +314,58 @@ export async function getVehiclesFlow(siteId: number | undefined, fallback: Vehi
       kteoExpiry: toDisplayText(raw.kteoExpiry ?? raw.KteoExpiry ?? raw.KTEOExpiry),
       emissionsCardExpiry: toDisplayText(raw.emissionsCardExpiry ?? raw.EmissionsCardExpiry),
       liftingCertificateExpiry: toDisplayText(raw.liftingCertificateExpiry ?? raw.LiftingCertificateExpiry),
+    };
+  });
+}
+
+export async function getVehicleDocumentsFlow(fallback: EvidenceDocument[] = []): Promise<Array<EvidenceDocument & Record<string, unknown>>> {
+  const result = await invokeFlowData<Array<EvidenceDocument & Record<string, unknown>>>(
+    'getVehicleDocuments',
+    integrationConfig.powerAutomateFlows.getVehicleDocuments,
+    { flowType: 'get-vehicle-documents' },
+    fallback as Array<EvidenceDocument & Record<string, unknown>>
+  );
+
+  function toDisplayText(value: unknown): string | undefined {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+
+    if (typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      const lookupValue = record.Value ?? record.Title ?? record.Name ?? record.DisplayName;
+      return lookupValue === undefined || lookupValue === null ? undefined : String(lookupValue);
+    }
+
+    return String(value);
+  }
+
+  return result.data.map((document) => {
+    const raw = document as EvidenceDocument & Record<string, unknown>;
+    const title = toDisplayText(raw.title ?? raw.Title ?? raw.documentType) ?? 'Vehicle document';
+
+    return {
+      ...document,
+      id: Number(raw.id ?? raw.ID ?? raw.itemId ?? 0),
+      entityType: 'vehicle',
+      entityId: Number(raw.entityId ?? raw.vehicleId ?? raw.VehicleId ?? 0),
+      documentType: toDisplayText(raw.documentType ?? raw.DocumentType ?? raw.category ?? raw.Category) ?? title,
+      fileName: toDisplayText(raw.fileName ?? raw.FileName ?? raw.attachmentName ?? raw.AttachmentName),
+      issueDate: toDisplayText(raw.issueDate ?? raw.IssueDate),
+      expiryDate: toDisplayText(raw.expiryDate ?? raw.ExpiryDate),
+      status: (toDisplayText(raw.status ?? raw.Status) ?? 'Active') as EvidenceDocument['status'],
+      url: toDisplayText(raw.url ?? raw.Url ?? raw.link ?? raw.Link ?? raw.itemUrl ?? raw.ItemUrl),
+      title,
+      folderPath: toDisplayText(raw.folderPath ?? raw.FolderPath ?? title),
+      vehicleKey: toDisplayText(raw.vehicleKey ?? raw.VehicleKey),
     };
   });
 }

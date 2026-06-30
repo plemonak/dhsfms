@@ -2,7 +2,7 @@ import type { Employee, EquipmentItem, EvidenceDocument, PpeCatalogItem, PpeIssu
 import { documents, employees, equipmentCatalog, ppeCatalog, ppeIssues, projectStaff, sites, trainingTopics, trainings, vehicles } from '../data/mockData';
 import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
 import { integrationConfig } from './integrationConfig';
-import { createTrainingFlow, getEmployeesFlow, getPpeCatalogFlow, getProjectStaffFlow, getTrainingTopicsFlow, getVehiclesFlow, getSitesFlow, updateVehicleFlow } from './flowClient';
+import { createTrainingFlow, getEmployeesFlow, getPpeCatalogFlow, getProjectStaffFlow, getTrainingTopicsFlow, getVehicleDocumentsFlow, getVehiclesFlow, getSitesFlow, updateVehicleFlow } from './flowClient';
 
 export interface IDataProvider {
   getSites(): Promise<Site[]>;
@@ -38,6 +38,72 @@ export class MockDataProvider implements IDataProvider {
   private ocrAdapter = new OcrAdapter();
   private signatureAdapter = new SignatureAdapter();
   private qrAdapter = new QrAdapter();
+
+  private normalizeVehicleDocumentKey(value?: string): string {
+    return (value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '')
+      .replace(/[^\p{L}\p{N}]/gu, '')
+      .toUpperCase()
+      .replace(/Μ/g, 'M')
+      .replace(/Ε/g, 'E')
+      .replace(/Ι/g, 'I')
+      .replace(/Χ/g, 'X');
+  }
+
+  private extractVehicleKeyFromDocument(document: EvidenceDocument & Record<string, unknown>): string | undefined {
+    const rawPath = String(document.folderPath ?? document.title ?? document.documentType ?? '');
+    const parts = rawPath.split('/').map(part => part.trim()).filter(Boolean);
+    const vehiclesIndex = parts.findIndex(part => this.normalizeVehicleDocumentKey(part) === 'VEHICLES');
+    const vehicleKey = vehiclesIndex >= 0 ? parts[vehiclesIndex + 1] : parts[0];
+    return vehicleKey || undefined;
+  }
+
+  private extractDocumentTypeFromPath(document: EvidenceDocument & Record<string, unknown>): string {
+    const explicitType = typeof document.documentType === 'string' ? document.documentType : undefined;
+    const rawPath = String(document.folderPath ?? document.title ?? explicitType ?? '');
+    const parts = rawPath.split('/').map(part => part.trim()).filter(Boolean);
+    const vehiclesIndex = parts.findIndex(part => this.normalizeVehicleDocumentKey(part) === 'VEHICLES');
+    const category = vehiclesIndex >= 0 ? parts[vehiclesIndex + 2] : undefined;
+
+    if (category) {
+      const normalized = this.normalizeVehicleDocumentKey(category);
+      if (normalized.includes('INSURANCE')) return 'Ασφάλεια';
+      if (normalized.includes('LICENSE') || normalized.includes('ADEIA')) return 'Άδεια / VIN';
+      if (normalized.includes('KTEO')) return 'ΚΤΕΟ';
+      if (normalized.includes('EMISSIONS')) return 'Κάρτα Καυσαερίων';
+      if (normalized.includes('LIFTING')) return 'Πιστοποιητικό Ανυψωτικής Ικανότητας';
+      return category;
+    }
+
+    return explicitType ?? 'Έγγραφο οχήματος';
+  }
+
+  private attachVehicleDocumentEntities(rawDocuments: Array<EvidenceDocument & Record<string, unknown>>): EvidenceDocument[] {
+    return rawDocuments.map((document) => {
+      const vehicleKey = this.normalizeVehicleDocumentKey(
+        String(document.vehicleKey ?? this.extractVehicleKeyFromDocument(document) ?? '')
+      );
+
+      const matchedVehicle = this.vehicleStore.find(vehicle => {
+        const keys = [vehicle.plate, vehicle.code, vehicle.chassisNumber].map(value => this.normalizeVehicleDocumentKey(value));
+        return vehicleKey && keys.some(key => key && key === vehicleKey);
+      });
+
+      return {
+        id: document.id || Date.now(),
+        entityType: 'vehicle',
+        entityId: document.entityId || matchedVehicle?.id || 0,
+        documentType: this.extractDocumentTypeFromPath(document),
+        fileName: document.fileName,
+        issueDate: document.issueDate,
+        expiryDate: document.expiryDate,
+        status: document.status ?? 'Active',
+        url: document.url,
+      };
+    });
+  }
 
   private async readSharePointList<T>(listName: string, fallback: T[]): Promise<T[]> {
     try {
@@ -117,6 +183,7 @@ export class MockDataProvider implements IDataProvider {
     const vehiclesFromSharePoint = await getVehiclesFlow(siteId, vehicles);
     const filtered = siteId ? vehiclesFromSharePoint.filter(v => v.siteId === siteId) : vehiclesFromSharePoint;
     if (integrationConfig.enableRealIntegrations && integrationConfig.powerAutomateFlows.getVehicles) {
+      this.vehicleStore = vehiclesFromSharePoint;
       return filtered;
     }
     return filtered.length > 0 ? filtered : this.vehicleStore.filter(v => (siteId ? v.siteId === siteId : true));
@@ -171,6 +238,19 @@ export class MockDataProvider implements IDataProvider {
   }
 
   async getDocuments(entityType?: EvidenceDocument['entityType'], entityId?: number): Promise<EvidenceDocument[]> {
+    if (!entityType || entityType === 'vehicle') {
+      const vehicleDocuments = this.attachVehicleDocumentEntities(await getVehicleDocumentsFlow([]));
+      const filteredVehicleDocuments = vehicleDocuments.filter(d => d.entityType === 'vehicle' && (!entityId || d.entityId === entityId));
+
+      if (integrationConfig.enableRealIntegrations && integrationConfig.powerAutomateFlows.getVehicleDocuments) {
+        return filteredVehicleDocuments;
+      }
+
+      if (filteredVehicleDocuments.length > 0) {
+        return filteredVehicleDocuments;
+      }
+    }
+
     const documentsFromSharePoint = await this.readSharePointList<EvidenceDocument>(integrationConfig.sharePointLists.medical, documents as EvidenceDocument[]);
     const filtered = documentsFromSharePoint.filter(d => (!entityType || d.entityType === entityType) && (!entityId || d.entityId === entityId));
     return filtered.length > 0 ? filtered : documents.filter(d => (!entityType || d.entityType === entityType) && (!entityId || d.entityId === entityId));
