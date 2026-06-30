@@ -4,11 +4,13 @@ import { FormField } from '../components/FormField';
 import { PageHeader } from '../components/PageHeader';
 import { SectionCard } from '../components/SectionCard';
 import { dataProvider } from '../services/dataProvider';
-import type { Site, Vehicle } from '../types/models';
+import type { EvidenceDocument, Site, Vehicle } from '../types/models';
+
+export type InitialVehicleDocumentDraft = Pick<EvidenceDocument, 'documentType' | 'fileName' | 'status' | 'url'>;
 
 interface Props {
   onBack: () => void;
-  onSave: (vehicle: Omit<Vehicle, 'id'>) => void;
+  onSave: (vehicle: Omit<Vehicle, 'id'>, initialLicenseDocument?: InitialVehicleDocumentDraft) => void | Promise<void>;
   sites: Site[];
   selectedSiteId: number | 'all';
   ownerOptions: string[];
@@ -484,7 +486,9 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
   });
 
   const [ocrFileName, setOcrFileName] = useState('');
+  const [ocrFileType, setOcrFileType] = useState('');
   const [ocrPreviewUrl, setOcrPreviewUrl] = useState<string | null>(null);
+  const [ocrSourceFile, setOcrSourceFile] = useState<File | null>(null);
   const [ocrStatus, setOcrStatus] = useState('');
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrExtractedFields, setOcrExtractedFields] = useState<string[]>([]);
@@ -514,6 +518,8 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
 
     setOcrLoading(true);
     setOcrFileName(file.name);
+    setOcrFileType(file.type);
+    setOcrSourceFile(file);
     setOcrPreviewUrl(URL.createObjectURL(file));
     setOcrStatus('');
     setOcrExtractedFields([]);
@@ -567,6 +573,19 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
     }
   }
 
+  async function handleSave() {
+    const initialLicenseDocument = ocrSourceFile
+      ? {
+          documentType: 'Άδεια / VIN',
+          fileName: ocrSourceFile.name,
+          status: 'Active' as EvidenceDocument['status'],
+          url: URL.createObjectURL(ocrSourceFile),
+        }
+      : undefined;
+
+    await onSave(form, initialLicenseDocument);
+  }
+
   return (
     <div className="page">
       <PageHeader title="Νέο όχημα / μηχάνημα" subtitle="Καταχώρηση οχήματος ή μηχανήματος έργου" actions={<button className="secondary-btn" onClick={onBack}><ArrowLeft size={17} />Πίσω</button>} />
@@ -587,7 +606,16 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
             {ocrFileName && <span className="row-subtitle">Αρχείο: {ocrFileName}</span>}
           </div>
 
-          {ocrPreviewUrl && <img src={ocrPreviewUrl} alt="Προεπισκόπηση OCR" style={{ marginTop: 12, maxWidth: '100%', maxHeight: 220, objectFit: 'contain', border: '1px solid var(--dh-line)', borderRadius: 10 }} />}
+          {ocrPreviewUrl && ocrFileType.includes('pdf') && (
+            <div className="row-subtitle" style={{ marginTop: 12 }}>
+              Το PDF της άδειας θα αποθηκευτεί ως τεκμήριο όταν πατήσετε Αποθήκευση.{' '}
+              <a href={ocrPreviewUrl} target="_blank" rel="noreferrer">Άνοιγμα PDF</a>
+            </div>
+          )}
+
+          {ocrPreviewUrl && !ocrFileType.includes('pdf') && (
+            <img src={ocrPreviewUrl} alt="Προεπισκόπηση OCR" style={{ marginTop: 12, maxWidth: '100%', maxHeight: 220, objectFit: 'contain', border: '1px solid var(--dh-line)', borderRadius: 10 }} />
+          )}
           {ocrStatus && <div className="row-subtitle" style={{ marginTop: 10 }}>{ocrStatus}</div>}
 
           {ocrExtractedFields.length > 0 && (
@@ -655,7 +683,7 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
 
       <div className="footer-actions">
         <button className="secondary-btn" onClick={onBack}>Άκυρο</button>
-        <button className="primary-btn" onClick={() => onSave(form)}><Save size={17} />Αποθήκευση</button>
+        <button className="primary-btn" onClick={handleSave}><Save size={17} />Αποθήκευση</button>
       </div>
     </div>
   );

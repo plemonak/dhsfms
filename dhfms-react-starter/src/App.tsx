@@ -11,6 +11,7 @@ import { QrPage } from './pages/QrPage';
 import { SignaturePage } from './pages/SignaturePage';
 import { TrainingPage } from './pages/TrainingPage';
 import { VehicleFormPage } from './pages/VehicleFormPage';
+import type { InitialVehicleDocumentDraft } from './pages/VehicleFormPage';
 import { VehicleProfilePage } from './pages/VehicleProfilePage';
 import { dataProvider } from './services/dataProvider';
 import type { Employee, EvidenceDocument, PageKey, PpeIssue, Site, TrainingSession, Vehicle } from './types/models';
@@ -58,10 +59,23 @@ export default function App() {
     setPage('employee-profile');
   }
 
-  async function handleCreateVehicle(vehicle: Omit<Vehicle, 'id'>) {
-    await dataProvider.createVehicle(vehicle);
+  async function handleCreateVehicle(vehicle: Omit<Vehicle, 'id'>, initialLicenseDocument?: InitialVehicleDocumentDraft) {
+    const created = await dataProvider.createVehicle(vehicle);
+
+    if (initialLicenseDocument) {
+      const createdDocument: EvidenceDocument = {
+        ...initialLicenseDocument,
+        id: Date.now(),
+        entityType: 'vehicle',
+        entityId: created.id,
+      };
+
+      setDocuments(prev => [createdDocument, ...prev]);
+    }
+
     setVehicles(await dataProvider.getVehicles());
-    setPage('vehicles');
+    setSelectedVehicleId(created.id);
+    setPage('vehicle-profile');
   }
 
   function handleAddVehicleDocument(document: Omit<EvidenceDocument, 'id'>) {

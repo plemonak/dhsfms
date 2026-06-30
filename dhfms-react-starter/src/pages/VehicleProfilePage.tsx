@@ -510,6 +510,9 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
               <div className="row-main">
                 <div className="row-title">{category.title}</div>
                 <div className="row-subtitle">{category.subtitle}</div>
+                {currentDocument?.fileName && (
+                  <div className="row-subtitle" style={{ marginTop: 4 }}>Αρχείο: {currentDocument.fileName}</div>
+                )}
 
                 <div style={{ marginTop: 8 }}>
                   <strong>Κατάσταση:</strong> {label}
@@ -525,7 +528,7 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
                     ) : (
                       historyDocuments.map(document => (
                         <div className="row-subtitle" key={document.id}>
-                          {document.documentType} · Λήξη: {formatDateForDisplay(document.expiryDate) || '—'} · Status: {document.status}
+                          {document.documentType}{document.fileName ? ` · ${document.fileName}` : ''} · Λήξη: {formatDateForDisplay(document.expiryDate) || '—'} · Status: {document.status}
                           {document.url && (
                             <> · <a href={document.url} target="_blank" rel="noreferrer">Άνοιγμα evidence</a></>
                           )}

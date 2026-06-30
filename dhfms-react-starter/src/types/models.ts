@@ -75,6 +75,7 @@ export interface EvidenceDocument {
   entityType: 'employee' | 'vehicle' | 'asset' | 'training' | 'ppe';
   entityId: number;
   documentType: string;
+  fileName?: string;
   issueDate?: string;
   expiryDate?: string;
   status: Status;
