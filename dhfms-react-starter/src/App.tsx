@@ -11,7 +11,7 @@ import { QrPage } from './pages/QrPage';
 import { SignaturePage } from './pages/SignaturePage';
 import { TrainingPage } from './pages/TrainingPage';
 import { VehicleFormPage } from './pages/VehicleFormPage';
-import type { InitialVehicleDocumentDraft } from './pages/VehicleFormPage';
+import type { InitialVehicleDocumentDraft, VehicleFormDraft } from './pages/VehicleFormPage';
 import { VehicleProfilePage } from './pages/VehicleProfilePage';
 import { dataProvider } from './services/dataProvider';
 import type { Employee, EvidenceDocument, PageKey, PpeIssue, Site, TrainingSession, Vehicle } from './types/models';
@@ -52,6 +52,43 @@ export default function App() {
   const vehicleOwnerOptions = useMemo(() => Array.from(new Set(['ΔΥΚΑΤ', ...vehicles.map(vehicle => vehicle.owner).filter(Boolean)])).sort(), [vehicles]);
   const vehicleTypeOptions = useMemo(() => Array.from(new Set(['Όχημα', 'Μηχάνημα Έργου', ...vehicles.map(vehicle => vehicle.type).filter(Boolean)])).sort(), [vehicles]);
 
+  function normalizeVehicleIdentifier(value?: string): string {
+    return (value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '')
+      .replace(/[^\p{L}\p{N}]/gu, '')
+      .toUpperCase()
+      .replace(/Μ/g, 'M')
+      .replace(/Ε/g, 'E')
+      .replace(/Ι/g, 'I')
+      .replace(/Χ/g, 'X');
+  }
+
+  function assertVehicleIsNotDuplicate(vehicle: VehicleFormDraft) {
+    const candidatePlate = normalizeVehicleIdentifier(vehicle.plate);
+    const candidateChassis = normalizeVehicleIdentifier(vehicle.chassisNumber);
+    const candidateCode = normalizeVehicleIdentifier(vehicle.code);
+
+    const duplicate = vehicles.find(existing => {
+      if (vehicle.id && existing.id === vehicle.id) return false;
+
+      const existingPlate = normalizeVehicleIdentifier(existing.plate);
+      const existingChassis = normalizeVehicleIdentifier(existing.chassisNumber);
+      const existingCode = normalizeVehicleIdentifier(existing.code);
+
+      return Boolean(
+        (candidatePlate && existingPlate && candidatePlate === existingPlate) ||
+        (candidateChassis && existingChassis && candidateChassis === existingChassis) ||
+        (candidateCode && candidateCode !== 'AUTO' && existingCode && candidateCode === existingCode)
+      );
+    });
+
+    if (!duplicate) return;
+
+    throw new Error(`Υπάρχει ήδη όχημα/Μ.Ε. με ίδια πινακίδα, αριθμό άδειας, VIN/πλαίσιο ή κωδικό: ${duplicate.plate || duplicate.code}`);
+  }
+
   async function handleCreateEmployee(employee: Omit<Employee, 'id' | 'fullName'>) {
     const created = await dataProvider.createEmployee(employee);
     setEmployees(await dataProvider.getEmployees());
@@ -59,10 +96,14 @@ export default function App() {
     setPage('employee-profile');
   }
 
-  async function handleCreateVehicle(vehicle: Omit<Vehicle, 'id'>, initialLicenseDocument?: InitialVehicleDocumentDraft) {
-    const created = await dataProvider.createVehicle(vehicle);
+  async function handleSaveVehicle(vehicle: VehicleFormDraft, initialLicenseDocument?: InitialVehicleDocumentDraft) {
+    assertVehicleIsNotDuplicate(vehicle);
 
-    if (initialLicenseDocument) {
+    const created = vehicle.id
+      ? await dataProvider.updateVehicle(vehicle as Vehicle)
+      : await dataProvider.createVehicle(vehicle);
+
+    if (!vehicle.id && initialLicenseDocument) {
       const folderPath = `Vehicles/${created.plate || created.code}/Άδεια`;
       const uploaded = initialLicenseDocument.sourceFile
         ? await dataProvider.uploadEvidence(initialLicenseDocument.sourceFile, folderPath)
@@ -81,7 +122,13 @@ export default function App() {
       setDocuments(prev => [createdDocument, ...prev]);
     }
 
-    setVehicles(await dataProvider.getVehicles());
+    setVehicles(prev => {
+      const exists = prev.some(entry => entry.id === created.id);
+      if (exists) {
+        return prev.map(entry => entry.id === created.id ? created : entry);
+      }
+      return [created, ...prev];
+    });
     setSelectedVehicleId(created.id);
     setPage('vehicle-profile');
   }
@@ -122,11 +169,11 @@ export default function App() {
       case 'licenses':
         return <EvidencePage title="Άδειες / Πιστοποιήσεις" subtitle="Άδειες εργαζομένων, πιστοποιήσεις και λήξεις" />;
       case 'vehicles':
-        return <GenericListPage title="Οχήματα & Μηχανήματα" subtitle="Στόλος, έγγραφα, ασφάλειες, ΚΤΕΟ" addLabel="Νέο όχημα" showOcrSection={false} onAdd={() => setPage('vehicle-form')} onRowClick={(id) => { setSelectedVehicleId(id); setPage('vehicle-profile'); }} rows={vehicles.map(v => ({ id: v.id, title: `${v.plate} · ${v.type}`, subtitle: `${v.code} · ${v.owner}`, status: v.status, qrType: 'VEH', qrLabel: v.plate }))} />;
+        return <GenericListPage title="Οχήματα & Μηχανήματα" subtitle="Στόλος, έγγραφα, ασφάλειες, ΚΤΕΟ" addLabel="Νέο όχημα" showOcrSection={false} onAdd={() => { setSelectedVehicleId(undefined); setPage('vehicle-form'); }} onRowClick={(id) => { setSelectedVehicleId(id); setPage('vehicle-profile'); }} rows={vehicles.map(v => ({ id: v.id, title: `${v.plate} · ${v.type}`, subtitle: `${v.code} · ${v.owner}`, status: v.status, qrType: 'VEH', qrLabel: v.plate }))} />;
       case 'vehicle-form':
-        return <VehicleFormPage onBack={() => setPage('vehicles')} onSave={handleCreateVehicle} sites={sites} selectedSiteId={selectedSiteId} ownerOptions={vehicleOwnerOptions} typeOptions={vehicleTypeOptions} />;
+        return <VehicleFormPage initialVehicle={selectedVehicle} onBack={() => setPage(selectedVehicle ? 'vehicle-profile' : 'vehicles')} onSave={handleSaveVehicle} sites={sites} selectedSiteId={selectedSiteId} ownerOptions={vehicleOwnerOptions} typeOptions={vehicleTypeOptions} />;
       case 'vehicle-profile':
-        return <VehicleProfilePage vehicle={selectedVehicle} documents={documents.filter(document => document.entityType === 'vehicle' && document.entityId === selectedVehicleId)} onBack={() => setPage('vehicles')} onAddDocument={handleAddVehicleDocument} />;
+        return <VehicleProfilePage vehicle={selectedVehicle} documents={documents.filter(document => document.entityType === 'vehicle' && document.entityId === selectedVehicleId)} onBack={() => setPage('vehicles')} onEdit={() => setPage('vehicle-form')} onAddDocument={handleAddVehicleDocument} />;
       case 'equipment':
         return <GenericListPage title="Εξοπλισμός" subtitle="Εργαλεία, πιστοποιητικά, QR και έλεγχοι" addLabel="Νέο στοιχείο" showOcrSection={false} rows={[{ id: 1, title: 'Ανυψωτικό μηχάνημα', subtitle: 'EQP-001 · Εργοτάξιο Κιλκίς', status: 'Active', qrType: 'EQP', qrLabel: 'Ανυψωτικό μηχάνημα' }]} />;
       case 'sites':

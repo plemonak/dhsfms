@@ -309,8 +309,11 @@ export async function getVehiclesFlow(siteId: number | undefined, fallback: Vehi
       owner: toDisplayText(raw.owner) ?? 'Unknown',
       siteId: Number(raw.siteId ?? siteId ?? 2),
       status: (toDisplayText(raw.status) ?? 'Active') as Vehicle['status'],
-      insuranceExpiry: toDisplayText(raw.insuranceExpiry),
-      kteoExpiry: toDisplayText(raw.kteoExpiry),
+      isImmobilized: Boolean(raw.isImmobilized ?? raw.IsImmobilized ?? raw.Immobilized),
+      insuranceExpiry: toDisplayText(raw.insuranceExpiry ?? raw.InsuranceExpiry),
+      kteoExpiry: toDisplayText(raw.kteoExpiry ?? raw.KteoExpiry ?? raw.KTEOExpiry),
+      emissionsCardExpiry: toDisplayText(raw.emissionsCardExpiry ?? raw.EmissionsCardExpiry),
+      liftingCertificateExpiry: toDisplayText(raw.liftingCertificateExpiry ?? raw.LiftingCertificateExpiry),
     };
   });
 }
@@ -371,6 +374,11 @@ export async function createVehicleFlow(payload: Record<string, unknown>): Promi
     VehicleType: payload.type,
     OwnershipStatus: payload.owner,
     Status: payload.status,
+    IsImmobilized: payload.isImmobilized,
+    InsuranceExpiry: payload.insuranceExpiry,
+    KTEOExpiry: payload.kteoExpiry,
+    EmissionsCardExpiry: payload.emissionsCardExpiry,
+    LiftingCertificateExpiry: payload.liftingCertificateExpiry,
     SiteId: payload.siteId,
   };
 
@@ -378,6 +386,35 @@ export async function createVehicleFlow(payload: Record<string, unknown>): Promi
     'createVehicle',
     integrationConfig.powerAutomateFlows.createVehicle,
     { ...enrichedPayload, flowType: 'create-vehicle' },
+    enrichedPayload
+  );
+  const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
+  return { id: responseId, status: result.status };
+}
+
+export async function updateVehicleFlow(payload: Record<string, unknown>): Promise<{ id?: number; status: string }> {
+  const enrichedPayload = {
+    ...payload,
+    ID: payload.id,
+    Title: payload.plate ?? payload.code,
+    VehicleID: payload.code,
+    RegistrationNumber: payload.plate,
+    VIN: payload.chassisNumber,
+    ChassisNumber: payload.chassisNumber,
+    Make: payload.manufacturer,
+    Manufacturer: payload.manufacturer,
+    Model: payload.model,
+    VehicleType: payload.type,
+    OwnershipStatus: payload.owner,
+    Status: payload.status,
+    IsImmobilized: payload.isImmobilized,
+    SiteId: payload.siteId,
+  };
+
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'updateVehicle',
+    integrationConfig.powerAutomateFlows.updateVehicle,
+    { ...enrichedPayload, flowType: 'update-vehicle' },
     enrichedPayload
   );
   const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;

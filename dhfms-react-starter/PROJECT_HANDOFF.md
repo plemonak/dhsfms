@@ -37,10 +37,13 @@
   - `owner`
   - `siteId`
   - `status`
+  - `isImmobilized`
   - `insuranceExpiry`
   - `kteoExpiry`
   - `emissionsCardExpiry`
   - `liftingCertificateExpiry`
+- Vehicle profile supports edit navigation and shows larger, grid-based basic detail fields.
+- Vehicle edit is wired in the app and data provider. SharePoint persistence requires `VITE_POWERAUTOMATE_FLOW_UPDATE_VEHICLE`; do not silently claim a permanent SharePoint save without that flow.
 - Vehicle document evidence should use the SharePoint list `VehicleDocuments` when available.
 - The upload evidence flow should create a `VehicleDocuments` list item and attach the uploaded PDF/file to that item.
 
@@ -54,11 +57,13 @@
 ## Insurance OCR Workflow
 
 - `VehicleProfilePage` supports document upload for:
-  - Άδεια / VIN
+  - Άδεια κυκλοφορίας or Άδεια Μηχανήματος Έργου
   - Ασφάλεια
-  - ΚΤΕΟ
-  - Κάρτα Καυσαερίων
-  - Πιστοποιητικό Ανυψωτικής Ικανότητας
+  - ΚΤΕΟ for regular vehicles that are not immobilized
+  - Κάρτα Καυσαερίων for regular vehicles that are not immobilized
+  - Τέλη κυκλοφορίας for regular vehicles that are not immobilized
+  - Δήλωση ακινησίας only when `isImmobilized` is true
+  - Πιστοποιητικό Ανυψωτικής Ικανότητας only for lifting machinery categories such as cranes, aerial platforms, forklifts/telehandlers
   - Άλλο έγγραφο
 - Insurance OCR should read:
   - Έναρξη Ασφάλισης

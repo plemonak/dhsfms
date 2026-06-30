@@ -45,6 +45,7 @@ export interface Vehicle {
   owner: string;
   siteId: number;
   status: Status;
+  isImmobilized?: boolean;
   insuranceExpiry?: string;
   kteoExpiry?: string;
   emissionsCardExpiry?: string;

@@ -10,13 +10,16 @@ export type InitialVehicleDocumentDraft = Pick<EvidenceDocument, 'documentType' 
   sourceFile?: File;
 };
 
+export type VehicleFormDraft = Omit<Vehicle, 'id'> & { id?: number };
+
 interface Props {
   onBack: () => void;
-  onSave: (vehicle: Omit<Vehicle, 'id'>, initialLicenseDocument?: InitialVehicleDocumentDraft) => void | Promise<void>;
+  onSave: (vehicle: VehicleFormDraft, initialLicenseDocument?: InitialVehicleDocumentDraft) => void | Promise<void>;
   sites: Site[];
   selectedSiteId: number | 'all';
   ownerOptions: string[];
   typeOptions: string[];
+  initialVehicle?: Vehicle;
 }
 
 function normalizeOcrText(value: string): string {
@@ -477,15 +480,26 @@ function parseBasicVehicleOcrFields(text: string, fullTextAnnotation?: unknown):
 
 
 
-export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOptions, typeOptions }: Props) {
-  const [form, setForm] = useState<Omit<Vehicle, 'id'>>({
+function createInitialVehicleDraft(
+  initialVehicle: Vehicle | undefined,
+  sites: Site[],
+  selectedSiteId: number | 'all',
+  ownerOptions: string[],
+  typeOptions: string[]
+): VehicleFormDraft {
+  return initialVehicle ?? {
     code: 'AUTO',
     plate: '',
     type: typeOptions[0] ?? 'Όχημα',
     owner: ownerOptions[0] ?? 'ΔΥΚΑΤ',
     siteId: selectedSiteId === 'all' ? (sites[0]?.id ?? 0) : selectedSiteId,
     status: 'Active',
-  });
+    isImmobilized: false,
+  };
+}
+
+export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOptions, typeOptions, initialVehicle }: Props) {
+  const [form, setForm] = useState<VehicleFormDraft>(() => createInitialVehicleDraft(initialVehicle, sites, selectedSiteId, ownerOptions, typeOptions));
 
   const [ocrFileName, setOcrFileName] = useState('');
   const [ocrFileType, setOcrFileType] = useState('');
@@ -499,6 +513,10 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
   const ocrInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    setForm(createInitialVehicleDraft(initialVehicle, sites, selectedSiteId, ownerOptions, typeOptions));
+  }, [initialVehicle, ownerOptions, selectedSiteId, sites, typeOptions]);
+
+  useEffect(() => {
     return () => {
       if (ocrPreviewUrl) {
         URL.revokeObjectURL(ocrPreviewUrl);
@@ -506,7 +524,7 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
     };
   }, [ocrPreviewUrl]);
 
-  const update = (key: keyof Omit<Vehicle, 'id'>, value: string | number) => {
+  const update = (key: keyof VehicleFormDraft, value: string | number | boolean) => {
     setForm(prev => ({ ...prev, [key]: value }));
   };
 
@@ -595,7 +613,8 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
       await onSave(form, initialLicenseDocument);
     } catch (error) {
       console.warn('Vehicle save failed.', error);
-      setSaveStatus('Η αποθήκευση απέτυχε. Δεν δημιουργήθηκε εγγραφή στο SharePoint. Ελέγξτε ότι υπάρχει VITE_POWERAUTOMATE_FLOW_CREATE_VEHICLE και ότι το flow γράφει στη λίστα οχημάτων.');
+      const message = error instanceof Error ? error.message : '';
+      setSaveStatus(message || 'Η αποθήκευση απέτυχε. Δεν δημιουργήθηκε εγγραφή στο SharePoint. Ελέγξτε ότι υπάρχει το αντίστοιχο Power Automate flow και ότι γράφει στη λίστα οχημάτων.');
     } finally {
       setSaving(false);
     }
@@ -603,7 +622,7 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
 
   return (
     <div className="page">
-      <PageHeader title="Νέο όχημα / μηχάνημα" subtitle="Καταχώρηση οχήματος ή μηχανήματος έργου" actions={<button className="secondary-btn" onClick={onBack}><ArrowLeft size={17} />Πίσω</button>} />
+      <PageHeader title={initialVehicle ? 'Επεξεργασία οχήματος / μηχανήματος' : 'Νέο όχημα / μηχάνημα'} subtitle={initialVehicle ? 'Διόρθωση βασικών στοιχείων και κατάστασης' : 'Καταχώρηση οχήματος ή μηχανήματος έργου'} actions={<button className="secondary-btn" onClick={onBack}><ArrowLeft size={17} />Πίσω</button>} />
 
       <div className="form">
         <SectionCard title="OCR αρχικής καταχώρησης οχήματος / ΜΕ">
@@ -692,6 +711,13 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
                 <option value="Completed">Completed</option>
               </select>
             </FormField>
+
+            <FormField label="Ακινησία">
+              <select className="field-select" value={form.isImmobilized ? 'yes' : 'no'} onChange={e => update('isImmobilized', e.target.value === 'yes')}>
+                <option value="no">Όχι, είναι σε χρήση / κυκλοφορία</option>
+                <option value="yes">Ναι, είναι δηλωμένο σε ακινησία</option>
+              </select>
+            </FormField>
           </div>
         </SectionCard>
       </div>
@@ -699,7 +725,7 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
       <div className="footer-actions">
         <button className="secondary-btn" onClick={onBack}>Άκυρο</button>
         {saveStatus && <span className="row-subtitle" style={{ color: '#b42318' }}>{saveStatus}</span>}
-        <button className="primary-btn" onClick={handleSave} disabled={saving}><Save size={17} />{saving ? 'Αποθήκευση…' : 'Αποθήκευση'}</button>
+        <button className="primary-btn" onClick={handleSave} disabled={saving}><Save size={17} />{saving ? 'Αποθήκευση…' : initialVehicle ? 'Αποθήκευση αλλαγών' : 'Αποθήκευση'}</button>
       </div>
     </div>
   );

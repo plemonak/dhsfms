@@ -10,7 +10,12 @@ const requiredVars = [
   'VITE_POWERAUTOMATE_FLOW_OCR_DOCUMENT',
 ];
 
-const urlVars = requiredVars.filter((name) => name.startsWith('VITE_POWERAUTOMATE_FLOW_'));
+const optionalVars = [
+  'VITE_POWERAUTOMATE_FLOW_UPDATE_VEHICLE',
+];
+
+const allVars = [...requiredVars, ...optionalVars];
+const urlVars = allVars.filter((name) => name.startsWith('VITE_POWERAUTOMATE_FLOW_'));
 
 function readSecret(name) {
   const value = process.env[name];
@@ -42,6 +47,23 @@ for (const name of requiredVars) {
   values.set(name, value);
 }
 
+for (const name of optionalVars) {
+  const value = readSecret(name);
+  printStatus(name, value);
+
+  if (!value) {
+    continue;
+  }
+
+  if (urlVars.includes(name) && !value.startsWith('https://')) {
+    console.error(`${name}: INVALID_NON_HTTPS`);
+    hasError = true;
+    continue;
+  }
+
+  values.set(name, value);
+}
+
 if (hasError) {
   console.error('Refusing to write .env.local because required secrets are missing or invalid.');
   process.exit(1);
@@ -51,6 +73,7 @@ const body = [
   '# Generated from environment variables / Codespaces secrets.',
   '# Do not commit this file.',
   ...requiredVars.map((name) => `${name}=${values.get(name)}`),
+  ...optionalVars.filter((name) => values.has(name)).map((name) => `${name}=${values.get(name)}`),
   '',
 ].join('\n');
 

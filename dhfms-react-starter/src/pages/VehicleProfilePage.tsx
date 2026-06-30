@@ -1,5 +1,5 @@
 import { ChangeEvent, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, FileText, History, Upload } from 'lucide-react';
+import { ArrowLeft, FileText, History, Pencil, Upload } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
 import type { EvidenceDocument, Vehicle } from '../types/models';
 
@@ -7,6 +7,7 @@ interface VehicleProfilePageProps {
   vehicle?: Vehicle;
   documents: EvidenceDocument[];
   onBack: () => void;
+  onEdit: () => void;
   onAddDocument: (document: Omit<EvidenceDocument, 'id'>) => void;
 }
 
@@ -17,6 +18,9 @@ type VehicleDocumentCategory = {
   expiry?: string;
   keywords: string[];
   hasExpiry: boolean;
+  required: boolean;
+  applicable: boolean;
+  legalNote?: string;
 };
 
 type InsuranceOcrResult = {
@@ -67,6 +71,7 @@ function sortDocuments(documents: EvidenceDocument[]): EvidenceDocument[] {
 }
 
 function statusLabel(category: VehicleDocumentCategory, current?: EvidenceDocument): string {
+  if (!category.applicable) return 'Δεν απαιτείται';
   if (!current) return 'Λείπει';
   const expiry = current.expiryDate ?? category.expiry;
 
@@ -227,7 +232,26 @@ function getVehicleEvidenceFolder(vehicle: Vehicle, category: VehicleDocumentCat
   return `Vehicles/${vehicleFolder}/${category.key}`;
 }
 
-export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }: VehicleProfilePageProps) {
+function isWorkMachine(vehicle?: Vehicle): boolean {
+  const value = `${vehicle?.type ?? ''} ${vehicle?.model ?? ''}`.toLowerCase();
+  return value.includes('μηχ') || value.includes('μ.ε') || value.includes('με ') || value.includes('έργου') || value.includes('εργου');
+}
+
+function requiresLiftingCertificate(vehicle?: Vehicle): boolean {
+  const value = `${vehicle?.type ?? ''} ${vehicle?.model ?? ''}`.toLowerCase();
+  return [
+    'γεραν',
+    'καλαθο',
+    'ανυψ',
+    'περονο',
+    'forklift',
+    'crane',
+    'platform',
+    'telehandler',
+  ].some(keyword => value.includes(keyword));
+}
+
+export function VehicleProfilePage({ vehicle, documents, onBack, onEdit, onAddDocument }: VehicleProfilePageProps) {
   const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
   const [uploadCategoryKey, setUploadCategoryKey] = useState<string | null>(null);
   const [ocrStatus, setOcrStatus] = useState('');
@@ -241,45 +265,77 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
       liftingCertificateExpiry?: string;
     };
 
-    return [
+    const immobilized = Boolean(vehicle?.isImmobilized);
+    const workMachine = isWorkMachine(vehicle);
+    const liftingRequired = requiresLiftingCertificate(vehicle);
+
+    const categoriesList: VehicleDocumentCategory[] = [
       {
         key: 'license',
-        title: 'Άδεια / VIN',
-        subtitle: 'Άδεια κυκλοφορίας / άδεια χρήσης ΜΕ / αποδεικτικό αριθμού πλαισίου',
+        title: workMachine ? 'Άδεια Μηχανήματος Έργου' : 'Άδεια κυκλοφορίας',
+        subtitle: workMachine ? 'Άδεια χρήσης/κυκλοφορίας Μ.Ε. και στοιχεία πλαισίου' : 'Άδεια κυκλοφορίας και στοιχεία οχήματος',
         keywords: ['άδεια', 'κυκλοφορίας', 'registration', 'license', 'vin', 'πλαισίου'],
         hasExpiry: false,
+        required: true,
+        applicable: true,
       },
       {
         key: 'insurance',
         title: 'Ασφάλεια',
-        subtitle: 'Ασφαλιστήριο συμβόλαιο',
+        subtitle: immobilized ? 'Δεν ζητείται ως ενεργό έγγραφο όσο είναι δηλωμένο σε ακινησία' : 'Ασφαλιστήριο συμβόλαιο σε ισχύ',
         expiry: vehicle?.insuranceExpiry,
         keywords: ['ασφάλεια', 'ασφαλιστήριο', 'insurance'],
         hasExpiry: true,
+        required: !immobilized,
+        applicable: !immobilized,
       },
       {
         key: 'kteo',
         title: 'ΚΤΕΟ',
-        subtitle: 'Περιοδικός τεχνικός έλεγχος',
+        subtitle: immobilized || workMachine ? 'Δεν ζητείται ως γενικό υποχρεωτικό έγγραφο για αυτή την κατηγορία/κατάσταση' : 'Περιοδικός τεχνικός έλεγχος',
         expiry: vehicle?.kteoExpiry,
         keywords: ['κτεο', 'τεχνικός έλεγχος', 'roadworthiness'],
         hasExpiry: true,
+        required: !immobilized && !workMachine,
+        applicable: !immobilized && !workMachine,
       },
       {
         key: 'emissions',
         title: 'Κάρτα Καυσαερίων',
-        subtitle: 'Κάρτα ελέγχου καυσαερίων',
+        subtitle: immobilized || workMachine ? 'Δεν ζητείται ως γενικό υποχρεωτικό έγγραφο για αυτή την κατηγορία/κατάσταση' : 'Κάρτα ελέγχου καυσαερίων',
         expiry: extra.emissionsCardExpiry,
         keywords: ['καυσαερίων', 'emissions'],
         hasExpiry: true,
+        required: !immobilized && !workMachine,
+        applicable: !immobilized && !workMachine,
+      },
+      {
+        key: 'road-tax',
+        title: 'Τέλη κυκλοφορίας',
+        subtitle: immobilized || workMachine ? 'Δεν ζητείται ως ενεργό έγγραφο όσο δεν υπάρχει υποχρέωση κυκλοφορίας' : 'Αποδεικτικό πληρωμής ή νόμιμη απαλλαγή',
+        keywords: ['τέλη', 'τελη', 'κυκλοφορίας', 'road tax'],
+        hasExpiry: false,
+        required: !immobilized && !workMachine,
+        applicable: !immobilized && !workMachine,
+      },
+      {
+        key: 'immobilization',
+        title: 'Δήλωση ακινησίας',
+        subtitle: 'Απαιτείται μόνο όταν το όχημα/Μ.Ε. είναι δηλωμένο σε ακινησία',
+        keywords: ['ακινησία', 'ακινησια', 'immobilized'],
+        hasExpiry: false,
+        required: immobilized,
+        applicable: immobilized,
       },
       {
         key: 'lifting',
         title: 'Πιστοποιητικό Ανυψωτικής Ικανότητας',
-        subtitle: 'Πιστοποιητικό ανύψωσης / lifting certificate',
+        subtitle: liftingRequired ? 'Για γερανούς, καλαθοφόρα, περονοφόρα και ανυψωτικά Μ.Ε.' : 'Δεν ζητείται για Μ.Ε. χωρίς ανυψωτική λειτουργία',
         expiry: extra.liftingCertificateExpiry,
         keywords: ['ανυψωτικής', 'ανύψωσης', 'lifting'],
         hasExpiry: true,
+        required: !immobilized && liftingRequired,
+        applicable: !immobilized && liftingRequired,
       },
       {
         key: 'other',
@@ -287,8 +343,12 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
         subtitle: 'Οποιοδήποτε πρόσθετο έγγραφο σχετικό με το όχημα / Μ.Ε.',
         keywords: ['άλλο', 'other'],
         hasExpiry: false,
+        required: false,
+        applicable: true,
       },
     ];
+
+    return categoriesList;
   }, [vehicle]);
 
   const currentInsuranceDocument = useMemo(() => {
@@ -423,19 +483,44 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
           <h1>{vehicle.plate || vehicle.code}</h1>
           <p>{vehicle.code} · {vehicle.type} · {vehicle.owner}</p>
         </div>
-        <strong>{vehicle.status}</strong>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button className="secondary-btn" type="button" onClick={onEdit}>
+            <Pencil size={17} /> Επεξεργασία
+          </button>
+          <strong>{vehicle.isImmobilized ? 'Ακινησία' : vehicle.status}</strong>
+        </div>
       </div>
 
       <div className="card">
         <h2>Βασικά στοιχεία</h2>
-        <div className="row">
-          <div className="row-main">
-            <div className="row-subtitle">
-              <strong>Αριθμός άδειας / κυκλοφορίας:</strong> {vehicle.plate || '—'} · <strong>Αριθμός πλαισίου:</strong> {vehicle.chassisNumber || '—'} · <strong>Εργοστ. κατασκευής:</strong> {vehicle.manufacturer || '—'} · <strong>Τύπος:</strong> {vehicle.model || '—'}
-            </div>
-            <div className="row-subtitle" style={{ marginTop: 6 }}>
-              <strong>Έναρξη ασφάλειας:</strong> {formatDateForDisplay(currentInsuranceDocument?.issueDate) || 'Δεν έχει καταχωρηθεί'} · <strong>Λήξη ασφάλειας:</strong> {formatDateForDisplay(vehicle.insuranceExpiry || currentInsuranceDocument?.expiryDate) || 'Δεν έχει καταχωρηθεί'}
-            </div>
+        <div className="vehicle-basic-grid">
+          <div className="vehicle-basic-field">
+            <span>Αριθμός άδειας / κυκλοφορίας</span>
+            <strong>{vehicle.plate || '—'}</strong>
+          </div>
+          <div className="vehicle-basic-field">
+            <span>Αριθμός πλαισίου / VIN</span>
+            <strong>{vehicle.chassisNumber || '—'}</strong>
+          </div>
+          <div className="vehicle-basic-field">
+            <span>Εργοστ. κατασκευής</span>
+            <strong>{vehicle.manufacturer || '—'}</strong>
+          </div>
+          <div className="vehicle-basic-field">
+            <span>Τύπος</span>
+            <strong>{vehicle.model || '—'}</strong>
+          </div>
+          <div className="vehicle-basic-field">
+            <span>Έναρξη ασφάλειας</span>
+            <strong>{formatDateForDisplay(currentInsuranceDocument?.issueDate) || 'Δεν έχει καταχωρηθεί'}</strong>
+          </div>
+          <div className="vehicle-basic-field">
+            <span>Λήξη ασφάλειας</span>
+            <strong>{formatDateForDisplay(vehicle.insuranceExpiry || currentInsuranceDocument?.expiryDate) || 'Δεν έχει καταχωρηθεί'}</strong>
+          </div>
+          <div className="vehicle-basic-field">
+            <span>Κατάσταση κυκλοφορίας</span>
+            <strong>{vehicle.isImmobilized ? 'Δηλωμένο σε ακινησία' : 'Σε χρήση / κυκλοφορία'}</strong>
           </div>
         </div>
       </div>
@@ -529,6 +614,9 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
               <div className="row-main">
                 <div className="row-title">{category.title}</div>
                 <div className="row-subtitle">{category.subtitle}</div>
+                <div className="row-subtitle" style={{ marginTop: 4 }}>
+                  {category.required ? 'Υποχρεωτικό' : category.applicable ? 'Προαιρετικό / πρόσθετο' : 'Δεν απαιτείται για την τρέχουσα κατηγορία ή κατάσταση'}
+                </div>
                 {currentDocument?.fileName && (
                   <div className="row-subtitle" style={{ marginTop: 4 }}>Αρχείο: {currentDocument.fileName}</div>
                 )}
@@ -576,6 +664,7 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
                 <button
                   className="primary-btn"
                   type="button"
+                  disabled={!category.applicable}
                   onClick={() => {
                     setUploadCategoryKey(category.key);
                     fileInputRef.current?.click();

@@ -2,7 +2,7 @@ import type { Employee, EquipmentItem, EvidenceDocument, PpeCatalogItem, PpeIssu
 import { documents, employees, equipmentCatalog, ppeCatalog, ppeIssues, projectStaff, sites, trainingTopics, trainings, vehicles } from '../data/mockData';
 import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
 import { integrationConfig } from './integrationConfig';
-import { createTrainingFlow, getEmployeesFlow, getPpeCatalogFlow, getProjectStaffFlow, getTrainingTopicsFlow, getVehiclesFlow, getSitesFlow } from './flowClient';
+import { createTrainingFlow, getEmployeesFlow, getPpeCatalogFlow, getProjectStaffFlow, getTrainingTopicsFlow, getVehiclesFlow, getSitesFlow, updateVehicleFlow } from './flowClient';
 
 export interface IDataProvider {
   getSites(): Promise<Site[]>;
@@ -14,6 +14,7 @@ export interface IDataProvider {
   getEquipmentCatalog(siteId?: number): Promise<EquipmentItem[]>;
   createEmployee(employee: Omit<Employee, 'id' | 'fullName'>): Promise<Employee>;
   createVehicle(vehicle: Omit<Vehicle, 'id'>): Promise<Vehicle>;
+  updateVehicle(vehicle: Vehicle): Promise<Vehicle>;
   getVehicles(siteId?: number): Promise<Vehicle[]>;
   getTrainings(siteId?: number): Promise<TrainingSession[]>;
   getDocuments(entityType?: EvidenceDocument['entityType'], entityId?: number): Promise<EvidenceDocument[]>;
@@ -30,6 +31,7 @@ export interface IDataProvider {
 
 export class MockDataProvider implements IDataProvider {
   private employeeStore = [...employees];
+  private vehicleStore = [...vehicles];
   private trainingStore = [...trainings];
   private sharePointAdapter = new SharePointAdapter();
   private flowAdapter = new FlowAdapter();
@@ -117,7 +119,7 @@ export class MockDataProvider implements IDataProvider {
     if (integrationConfig.enableRealIntegrations && integrationConfig.powerAutomateFlows.getVehicles) {
       return filtered;
     }
-    return filtered.length > 0 ? filtered : vehicles.filter(v => (siteId ? v.siteId === siteId : true));
+    return filtered.length > 0 ? filtered : this.vehicleStore.filter(v => (siteId ? v.siteId === siteId : true));
   }
 
   async createVehicle(vehicle: Omit<Vehicle, 'id'>): Promise<Vehicle> {
@@ -143,7 +145,23 @@ export class MockDataProvider implements IDataProvider {
       created.id = createdRemote.id;
     }
 
+    this.vehicleStore = [created, ...this.vehicleStore];
     return created;
+  }
+
+  async updateVehicle(vehicle: Vehicle): Promise<Vehicle> {
+    if (integrationConfig.enableRealIntegrations && !integrationConfig.powerAutomateFlows.updateVehicle) {
+      throw new Error('Missing VITE_POWERAUTOMATE_FLOW_UPDATE_VEHICLE. Vehicle changes were not saved to SharePoint.');
+    }
+
+    const updatedRemote = await updateVehicleFlow(vehicle as unknown as Record<string, unknown>);
+
+    if (integrationConfig.enableRealIntegrations && updatedRemote.status === 'mock-fallback') {
+      throw new Error('Update vehicle flow failed. Vehicle changes were not saved to SharePoint.');
+    }
+
+    this.vehicleStore = this.vehicleStore.map(entry => entry.id === vehicle.id ? vehicle : entry);
+    return vehicle;
   }
 
   async getTrainings(siteId?: number): Promise<TrainingSession[]> {

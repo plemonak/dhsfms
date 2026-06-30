@@ -10,6 +10,10 @@ const requiredVars = [
   'VITE_POWERAUTOMATE_FLOW_OCR_DOCUMENT',
 ];
 
+const optionalVars = [
+  'VITE_POWERAUTOMATE_FLOW_UPDATE_VEHICLE',
+];
+
 const flowChecks = [
   ['GET_EMPLOYEES', 'VITE_POWERAUTOMATE_FLOW_GET_EMPLOYEES'],
   ['GET_SITES', 'VITE_POWERAUTOMATE_FLOW_GET_SITES'],
@@ -185,6 +189,15 @@ for (const name of requiredVars) {
   if (!value) {
     hasError = true;
   }
+  if (name.startsWith('VITE_POWERAUTOMATE_FLOW_') && value && !value.startsWith('https://')) {
+    console.warn(`${name}: INVALID_NON_HTTPS`);
+    hasError = true;
+  }
+}
+
+for (const name of optionalVars) {
+  const value = readEnv(name);
+  console.log(`${name}: ${value ? 'SET' : 'MISSING_OPTIONAL'}`);
   if (name.startsWith('VITE_POWERAUTOMATE_FLOW_') && value && !value.startsWith('https://')) {
     console.warn(`${name}: INVALID_NON_HTTPS`);
     hasError = true;
