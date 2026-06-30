@@ -21,6 +21,7 @@ export const integrationConfig = {
     licenses: readEnv('VITE_SHAREPOINT_LIST_LICENSES') ?? 'EmployeeLicenses',
     ppe: readEnv('VITE_SHAREPOINT_LIST_PPE') ?? 'PPEIssuances',
     vehicles: readEnv('VITE_SHAREPOINT_LIST_VEHICLES') ?? 'Vehicles',
+    vehicleDocuments: readEnv('VITE_SHAREPOINT_LIST_VEHICLE_DOCUMENTS') ?? 'VehicleDocuments',
     equipment: readEnv('VITE_SHAREPOINT_LIST_EQUIPMENT') ?? 'Equipment',
     assets: readEnv('VITE_SHAREPOINT_LIST_ASSETS') ?? 'Assets',
   },

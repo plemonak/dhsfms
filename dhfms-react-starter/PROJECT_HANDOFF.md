@@ -41,6 +41,8 @@
   - `kteoExpiry`
   - `emissionsCardExpiry`
   - `liftingCertificateExpiry`
+- Vehicle document evidence should use the SharePoint list `VehicleDocuments` when available.
+- The upload evidence flow should create a `VehicleDocuments` list item and attach the uploaded PDF/file to that item.
 
 ## OCR State
 
@@ -74,6 +76,8 @@
 - `VITE_POWERAUTOMATE_FLOW_GET_SITES`
 - `VITE_POWERAUTOMATE_FLOW_GET_VEHICLES`
 - `VITE_POWERAUTOMATE_FLOW_OCR_DOCUMENT`
+- `VITE_POWERAUTOMATE_FLOW_UPLOAD_EVIDENCE`
+- `VITE_SHAREPOINT_LIST_VEHICLE_DOCUMENTS` defaults to `VehicleDocuments`
 
 ## Known Mistakes To Avoid
 

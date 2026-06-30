@@ -420,6 +420,7 @@ export async function uploadEvidence(file: File, folderPath: string): Promise<{ 
     fileName: file.name,
     folderPath,
     siteUrl: integrationConfig.sharePointSiteUrl,
+    listName: integrationConfig.sharePointLists.vehicleDocuments,
     rootFolder: integrationConfig.evidenceRootFolder,
     contentType: file.type || 'application/octet-stream',
     fileContentBase64: await fileToBase64(file),
