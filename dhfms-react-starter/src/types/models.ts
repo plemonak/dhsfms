@@ -32,6 +32,7 @@ export interface ProjectStaffMember {
   displayName: string;
   title?: string;
   responsibleName?: string;
+  email?: string;
 }
 
 export interface Vehicle {
@@ -126,6 +127,7 @@ export type PageKey =
   | 'employee-profile'
   | 'employee-form'
   | 'training'
+  | 'jsa-signoff'
   | 'ppe'
   | 'medical'
   | 'licenses'

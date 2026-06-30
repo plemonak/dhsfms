@@ -27,7 +27,37 @@ export interface GenerateTrainingAttendancePdfInput {
   participantsJson: string;
   pdfFileName: string;
 }
+export interface CreateJsaSignOffInput {
+  jsaTaskTitle: string;
+  projectType?: string;
+  constructionPhase?: string;
+  workSite?: string;
+  executionDate?: string;
+  trainerEmail: string;
+  trainerName: string;
+  employees: Array<{ email: string; fullName: string }>;
+}
 
+export interface CreateJsaSignOffResult {
+  signOffTitle: string;
+  employeeCount: number;
+  status: string;
+}
+
+export interface SubmitJsaSignatureInput {
+  signOffTitle: string;
+  signerEmail: string;
+  signerRole: 'trainer' | 'employee';
+  signatureImageBase64: string;
+}
+
+export interface SubmitJsaSignatureResult {
+  signOffTitle: string;
+  signerEmail: string;
+  signerRole: string;
+  allSigned: boolean;
+  status: string;
+}
 export interface FlowResult {
   status: 'mock-fallback' | 'completed';
   message: string;
@@ -378,7 +408,30 @@ export async function getProjectStaffFlow(siteId: number | undefined, fallback: 
     { siteId, flowType: 'get-project-staff' },
     fallback
   );
-  return result.data;
+
+  function toDisplayText(value: unknown): string | undefined {
+    if (value === undefined || value === null) return undefined;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return String(value);
+    if (typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      const lookupValue = record.Value ?? record.Title ?? record.Name ?? record.DisplayName;
+      return lookupValue === undefined || lookupValue === null ? undefined : String(lookupValue);
+    }
+    return String(value);
+  }
+
+  return result.data.map((staff) => {
+    const raw = staff as ProjectStaffMember & Record<string, unknown>;
+    return {
+      ...staff,
+      id: Number(raw.id ?? raw.ID ?? 0),
+      displayName: toDisplayText(raw.displayName ?? raw.DisplayName ?? raw.Title ?? raw.FullName) ?? 'Στέλεχος',
+      title: toDisplayText(raw.title ?? raw.Title),
+      responsibleName: toDisplayText(raw.responsibleName ?? raw.ResponsibleName),
+      email: toDisplayText(raw.email ?? raw.Email),
+    };
+  });
 }
 
 export async function getTrainingTopicsFlow(fallback: TrainingTopic[]): Promise<TrainingTopic[]> {
@@ -581,4 +634,91 @@ export async function ocrDocumentPlaceholder(input: {
     fileName: typeof result.data.fileName === 'string' ? result.data.fileName : input.fileName,
     fullTextAnnotation: result.data.fullTextAnnotation,
   };
+}
+export async function createJsaSignOffFlow(input: CreateJsaSignOffInput): Promise<CreateJsaSignOffResult> {
+  const fallback: CreateJsaSignOffResult = {
+    signOffTitle: `JSA-MOCK-${Date.now()}`,
+    employeeCount: input.employees.length,
+    status: 'mock-fallback',
+  };
+
+  const result = await invokeFlowData<CreateJsaSignOffResult>(
+    'createJsaSignOff',
+    integrationConfig.powerAutomateFlows.jsaCreateSignOff,
+    { ...input, flowType: 'jsa-create-signoff' },
+    fallback
+  );
+
+  return result.data;
+}
+
+export async function submitJsaSignatureFlow(input: SubmitJsaSignatureInput): Promise<SubmitJsaSignatureResult> {
+  const fallback: SubmitJsaSignatureResult = {
+    signOffTitle: input.signOffTitle,
+    signerEmail: input.signerEmail,
+    signerRole: input.signerRole,
+    allSigned: false,
+    status: 'mock-fallback',
+  };
+
+  const result = await invokeFlowData<SubmitJsaSignatureResult>(
+    'submitJsaSignature',
+    integrationConfig.powerAutomateFlows.jsaSubmitSignature,
+    { ...input, flowType: 'jsa-submit-signature' },
+    fallback
+  );
+
+  return result.data;
+}
+export interface JsaLibraryTaskRaw {
+  project: string;
+  phase: string;
+  taskName: string;
+  risk: string;
+}
+
+export async function getJsaLibraryTasksFlow(fallback: JsaLibraryTaskRaw[]): Promise<JsaLibraryTaskRaw[]> {
+  const result = await invokeFlowData<Array<Record<string, unknown>>>(
+    'getJsaLibraryTasks',
+    integrationConfig.powerAutomateFlows.getJsaLibraryTasks,
+    { flowType: 'get-jsa-library-tasks' },
+    fallback as unknown as Array<Record<string, unknown>>
+  );
+
+  if (result.status === 'mock-fallback') {
+    return fallback;
+  }
+
+  return result.data.map((raw) => ({
+    project: String(raw.ProjectType ?? raw.project ?? ''),
+    phase: String(raw.ConstructionPhase ?? raw.phase ?? ''),
+    taskName: String(raw.Title ?? raw.taskName ?? ''),
+    risk: String(raw.RiskLevel ?? raw.risk ?? 'M'),
+  })).filter((t) => t.project && t.taskName);
+}
+export interface UploadJsaScannedFormInput {
+  signOffTitle: string;
+  fileName: string;
+  fileContentBase64: string;
+}
+
+export interface UploadJsaScannedFormResult {
+  status: string;
+  fileUrl?: string;
+}
+
+export async function uploadJsaScannedFormFlow(input: UploadJsaScannedFormInput): Promise<UploadJsaScannedFormResult> {
+  const fallback: UploadJsaScannedFormResult = {
+    status: 'mock-fallback',
+    fileUrl: '#',
+  };
+
+  const result = await invokeFlowData<UploadJsaScannedFormResult>(
+    'uploadJsaScannedForm',
+    integrationConfig.powerAutomateFlows.jsaUploadScannedForm,
+    { ...input, flowType: 'jsa-upload-scanned-form' },
+    fallback
+  );
+
+  return result.data;
 }

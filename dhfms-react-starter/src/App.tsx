@@ -10,6 +10,7 @@ import { GenericListPage } from './pages/GenericListPage';
 import { QrPage } from './pages/QrPage';
 import { SignaturePage } from './pages/SignaturePage';
 import { TrainingPage } from './pages/TrainingPage';
+import { JsaSignOffPage } from './pages/JsaSignOffPage';
 import { VehicleFormPage } from './pages/VehicleFormPage';
 import type { InitialVehicleDocumentDraft, VehicleFormDraft } from './pages/VehicleFormPage';
 import { VehicleProfilePage } from './pages/VehicleProfilePage';
@@ -162,6 +163,8 @@ export default function App() {
         return <EmployeeFormPage onBack={() => setPage(selectedEmployeeId ? 'employee-profile' : 'employees')} onSave={handleCreateEmployee} sites={sites} selectedSiteId={selectedSiteId} positionOptions={employeePositionOptions} companyOptions={employeeCompanyOptions} />;
       case 'training':
         return <TrainingPage trainings={siteTrainings} employees={siteEmployees} documents={documents.filter(document => document.entityType === 'training')} />;
+      case 'jsa-signoff':
+        return <JsaSignOffPage />;
       case 'ppe':
         return <GenericListPage title="Χορηγήσεις ΜΑΠ" subtitle="ΜΑΠ, υπογραφές εργαζομένου και εκδότη" addLabel="Νέα χορήγηση" rows={ppeIssues.map(p => ({ id: p.id, title: `Χορήγηση ΜΑΠ #${p.id}`, subtitle: p.issueDate, status: p.status }))} />;
       case 'medical':
