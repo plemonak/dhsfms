@@ -82,6 +82,17 @@
 
 If `VITE_POWERAUTOMATE_FLOW_GET_VEHICLES` is set but `VITE_POWERAUTOMATE_FLOW_CREATE_VEHICLE` is missing, new vehicles will not be saved to SharePoint. The UI must show an error instead of silently falling back to mock creation.
 
+Vehicle create/read flows must map these SharePoint columns:
+
+- `VIN` -> app `chassisNumber`
+- `Make` -> app `manufacturer`
+- `Model` -> app `model`
+
+Generated flow packages for this mapping:
+
+- `DHFMS_CreateVehicle_VIN_Make_Model_20260630.zip`
+- `DHFMS_GetVehicles_VIN_Make_Model_20260630.zip`
+
 ## Known Mistakes To Avoid
 
 - Do not trust env blindly. Verify flow outputs with `npm run doctor:integrations` before UI debugging.

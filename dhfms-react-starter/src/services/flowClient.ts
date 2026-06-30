@@ -303,6 +303,9 @@ export async function getVehiclesFlow(siteId: number | undefined, fallback: Vehi
       code: toDisplayText(raw.code) ?? '',
       plate: toDisplayText(raw.plate) ?? '',
       type: toDisplayText(raw.type) ?? 'Vehicle',
+      chassisNumber: toDisplayText(raw.chassisNumber ?? raw.ChassisNumber ?? raw.VIN),
+      manufacturer: toDisplayText(raw.manufacturer ?? raw.Manufacturer ?? raw.Make),
+      model: toDisplayText(raw.model ?? raw.Model),
       owner: toDisplayText(raw.owner) ?? 'Unknown',
       siteId: Number(raw.siteId ?? siteId ?? 2),
       status: (toDisplayText(raw.status) ?? 'Active') as Vehicle['status'],
@@ -355,11 +358,27 @@ export async function createEmployeeFlow(payload: Record<string, unknown>): Prom
 }
 
 export async function createVehicleFlow(payload: Record<string, unknown>): Promise<{ id?: number; status: string }> {
+  const enrichedPayload = {
+    ...payload,
+    Title: payload.plate ?? payload.code,
+    VehicleID: payload.code,
+    RegistrationNumber: payload.plate,
+    VIN: payload.chassisNumber,
+    ChassisNumber: payload.chassisNumber,
+    Make: payload.manufacturer,
+    Manufacturer: payload.manufacturer,
+    Model: payload.model,
+    VehicleType: payload.type,
+    OwnershipStatus: payload.owner,
+    Status: payload.status,
+    SiteId: payload.siteId,
+  };
+
   const result = await invokeFlowData<Record<string, unknown>>(
     'createVehicle',
     integrationConfig.powerAutomateFlows.createVehicle,
-    { ...payload, flowType: 'create-vehicle' },
-    payload
+    { ...enrichedPayload, flowType: 'create-vehicle' },
+    enrichedPayload
   );
   const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
   return { id: responseId, status: result.status };
