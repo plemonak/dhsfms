@@ -494,6 +494,8 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
   const [ocrStatus, setOcrStatus] = useState('');
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrExtractedFields, setOcrExtractedFields] = useState<string[]>([]);
+  const [saveStatus, setSaveStatus] = useState('');
+  const [saving, setSaving] = useState(false);
   const ocrInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -576,6 +578,9 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
   }
 
   async function handleSave() {
+    setSaving(true);
+    setSaveStatus('');
+
     const initialLicenseDocument = ocrSourceFile
       ? {
           documentType: 'Άδεια / VIN',
@@ -586,7 +591,14 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
         }
       : undefined;
 
-    await onSave(form, initialLicenseDocument);
+    try {
+      await onSave(form, initialLicenseDocument);
+    } catch (error) {
+      console.warn('Vehicle save failed.', error);
+      setSaveStatus('Η αποθήκευση απέτυχε. Δεν δημιουργήθηκε εγγραφή στο SharePoint. Ελέγξτε ότι υπάρχει VITE_POWERAUTOMATE_FLOW_CREATE_VEHICLE και ότι το flow γράφει στη λίστα οχημάτων.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -686,7 +698,8 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
 
       <div className="footer-actions">
         <button className="secondary-btn" onClick={onBack}>Άκυρο</button>
-        <button className="primary-btn" onClick={handleSave}><Save size={17} />Αποθήκευση</button>
+        {saveStatus && <span className="row-subtitle" style={{ color: '#b42318' }}>{saveStatus}</span>}
+        <button className="primary-btn" onClick={handleSave} disabled={saving}><Save size={17} />{saving ? 'Αποθήκευση…' : 'Αποθήκευση'}</button>
       </div>
     </div>
   );

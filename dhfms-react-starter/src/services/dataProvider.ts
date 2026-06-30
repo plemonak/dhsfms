@@ -126,10 +126,18 @@ export class MockDataProvider implements IDataProvider {
       id: Date.now(),
     };
 
+    if (integrationConfig.enableRealIntegrations && !integrationConfig.powerAutomateFlows.createVehicle) {
+      throw new Error('Missing VITE_POWERAUTOMATE_FLOW_CREATE_VEHICLE. Vehicle was not saved to SharePoint.');
+    }
+
     const createdRemote = await this.sharePointAdapter.createListItem({
       listName: integrationConfig.sharePointLists.vehicles,
       item: vehicle,
     });
+
+    if (integrationConfig.enableRealIntegrations && createdRemote.status === 'mock-fallback') {
+      throw new Error('Create vehicle flow failed. Vehicle was not saved to SharePoint.');
+    }
 
     if (createdRemote.status !== 'mock-fallback' && createdRemote.id) {
       created.id = createdRemote.id;
