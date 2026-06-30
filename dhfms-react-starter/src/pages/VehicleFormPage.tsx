@@ -175,6 +175,110 @@ function getStructuredValueRightOfLabel(annotation: unknown, labels: string[], s
 }
 
 
+function getImmediateRightValue(words: OcrWordBox[]): string {
+  if (words.length === 0) {
+    return '';
+  }
+
+  const sorted = [...words].sort((a, b) => a.minX - b.minX);
+  const selected: OcrWordBox[] = [sorted[0]];
+
+  for (let index = 1; index < sorted.length; index += 1) {
+    const previous = selected[selected.length - 1];
+    const current = sorted[index];
+    const gap = current.minX - previous.maxX;
+
+    if (gap > 45) {
+      break;
+    }
+
+    selected.push(current);
+  }
+
+  return cleanOcrCandidate(selected.map(word => word.text).join(' '));
+}
+
+
+function getMeLicenseValueRightOfLabel(annotation: unknown, labels: string[], skipLabels: string[] = []): string {
+  const words = extractOcrWords(annotation);
+  const rows = groupOcrWordsIntoRows(words);
+
+  for (const row of rows) {
+    const rowText = normalizeForMatch(row.map(word => word.text).join(' '));
+
+    if (skipLabels.some(label => rowText.includes(normalizeForMatch(label)))) {
+      continue;
+    }
+
+    const matchedLabel = labels.find(label => {
+      const tokens = normalizeForMatch(label).split(/\s+/).filter(token => token.length > 1);
+      return tokens.every(token => rowText.includes(token));
+    });
+
+    if (!matchedLabel) {
+      continue;
+    }
+
+    const labelTokens = normalizeForMatch(matchedLabel).split(/\s+/).filter(token => token.length > 1);
+
+    const labelWords = row.filter(word => {
+      const normalizedWord = normalizeForMatch(word.text);
+      return labelTokens.some(token => normalizedWord.includes(token) || token.includes(normalizedWord));
+    });
+
+    const effectiveLabelWords = labelWords.length > 0 ? labelWords : row.slice(0, Math.min(3, row.length));
+    const labelEndX = Math.max(...effectiveLabelWords.map(word => word.maxX));
+    const labelCenterY = effectiveLabelWords.reduce((sum, word) => sum + word.centerY, 0) / effectiveLabelWords.length;
+    const labelHeight = Math.max(...effectiveLabelWords.map(word => word.height));
+
+    const rightWords = words
+      .filter(word =>
+        word.minX > labelEndX + 8 &&
+        Math.abs(word.centerY - labelCenterY) <= Math.max(18, labelHeight * 1.6)
+      )
+      .sort((a, b) => a.minX - b.minX);
+
+    const value = getImmediateRightValue(rightWords);
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return '';
+}
+
+
+function detectVehicleCategoryFromOcrText(text: string, typeOptions: string[]): string | undefined {
+  const normalized = normalizeForMatch(text);
+
+  if (
+    normalized.includes('ΜΗΧΑΝΗΜΑΤΟΣ ΕΡΓΩΝ') ||
+    normalized.includes('ΜΗΧΑΝΗΜΑΤΟΣ ΕΡΓΟΥ') ||
+    normalized.includes('ΕΙΔΟΣ ME') ||
+    normalized.includes('ΕΙΔΟΣ ΜΕ') ||
+    normalized.includes('ΤΥΠΟΥ ΜΕ')
+  ) {
+    return typeOptions.find(option => option.toLowerCase().includes('μηχ')) ?? 'Μηχάνημα Έργου';
+  }
+
+  if (normalized.includes('ΑΔΕΙΑ ΚΥΚΛΟΦΟΡΙΑΣ ΟΧΗΜΑΤΟΣ')) {
+    return typeOptions.find(option => option.toLowerCase().includes('όχη') || option.toLowerCase().includes('οχη')) ?? 'Όχημα';
+  }
+
+  return undefined;
+}
+
+
+function getManufacturerStrictRightOfLabel(annotation: unknown): string {
+  return getMeLicenseValueRightOfLabel(
+    annotation,
+    ['Εργοστ. κατασκευής', 'Εργοστ κατασκευής'],
+    ['κινητ', 'ΧΩΡ', 'ΚΑΔ', 'ΕΚΣΚΑΦΕΑ']
+  );
+}
+
+
 interface ParsedVehicleOcrFields {
   plate?: string;
   chassisNumber?: string;
@@ -247,39 +351,63 @@ function isValidChassisCandidate(value: string): boolean {
 }
 
 
+function normalizeMeLicenseNumber(value: string): string {
+  const cleaned = cleanOcrCandidate(value)
+    .replace(/[.·]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\bME\b/i, 'ΜΕ')
+    .replace(/\bIX\b/i, 'ΙΧ')
+    .trim();
+
+  const match = cleaned.match(/(?:ΜΕ\s*)?(\d{4,8})(?:\s*(ΙΧ|IX))?/i);
+
+  if (!match) {
+    return '';
+  }
+
+  return `ΜΕ ${match[1]}${match[2] ? ' ΙΧ' : ''}`;
+}
+
+function extractMeLicenseNumber(text: string, fullTextAnnotation?: unknown): string {
+  const structuredValue = getMeLicenseValueRightOfLabel(fullTextAnnotation, [
+    'ΑΡΙΘΜΟΣ ΑΔΕΙΑΣ',
+    'Αριθμός Αδείας',
+    'Αριθμός Άδειας'
+  ]);
+
+  const structuredLicense = normalizeMeLicenseNumber(structuredValue);
+
+  if (structuredLicense) {
+    return structuredLicense;
+  }
+
+  const singleLine = normalizeOcrText(text).replace(/\s+/g, ' ');
+  const fallbackMatch =
+    singleLine.match(/ΑΡΙΘΜΟΣ\s+ΑΔΕΙΑΣ[^0-9]{0,100}(\d{4,8})(?:[^A-ZΑ-Ω0-9]{0,20}(ΙΧ|IX))?/i) ??
+    singleLine.match(/(?:ΜΕ|ME)[^0-9]{0,60}(\d{4,8})(?:[^A-ZΑ-Ω0-9]{0,20}(ΙΧ|IX))?/i);
+
+  if (!fallbackMatch) {
+    return '';
+  }
+
+  return `ΜΕ ${fallbackMatch[1]}${fallbackMatch[2] ? ' ΙΧ' : ''}`;
+}
+
+
 function parseBasicVehicleOcrFields(text: string, fullTextAnnotation?: unknown): ParsedVehicleOcrFields {
   const normalized = normalizeOcrText(text);
-  const singleLine = normalized.replace(/\s+/g, ' ');
+  const plate = extractMeLicenseNumber(normalized, fullTextAnnotation);
 
-  const licenseMatch =
-    singleLine.match(/ΑΡΙΘΜΟΣ\s+ΑΔΕΙΑΣ[^0-9]{0,100}(\d{4,8})(?:[^A-ZΑ-Ω0-9]{0,20}([A-ZΑ-Ω]{1,3}))?/i) ??
-    singleLine.match(/(?:ΜΕ|ME)[^0-9]{0,60}(\d{4,8})(?:[^A-ZΑ-Ω0-9]{0,20}([A-ZΑ-Ω]{1,3}))?/i);
-
-  const rawSuffix = licenseMatch?.[2]?.toUpperCase().replace('IX', 'ΙΧ');
-  const plate = licenseMatch ? `ΜΕ ${licenseMatch[1]}${rawSuffix ? ` ${rawSuffix}` : ''}` : '';
-
-  const chassisCandidate = getStructuredValueRightOfLabel(fullTextAnnotation, ['Αριθμός Πλαισίου', 'Αριθμος Πλαισιου', 'VIN']) || getValueNearLabel(normalized, ['Αριθμός Πλαισίου', 'Αριθμος Πλαισιου', 'Αρ. Πλαισίου', 'Αρ Πλαισίου', 'Πλαίσιο', 'Πλαισίου', 'VIN']);
+  const chassisCandidate = getMeLicenseValueRightOfLabel(fullTextAnnotation, ['Αριθμός Πλαισίου', 'Αριθμος Πλαισιου', 'VIN']) || getValueNearLabel(normalized, ['Αριθμός Πλαισίου', 'Αριθμος Πλαισιου', 'Αρ. Πλαισίου', 'Αρ Πλαισίου', 'Πλαίσιο', 'Πλαισίου', 'VIN']);
 
   return {
     plate,
     chassisNumber: isValidChassisCandidate(chassisCandidate) ? chassisCandidate : '',
-    manufacturer: getStructuredValueRightOfLabel(fullTextAnnotation, ['Εργοστ. κατασκευής', 'Εργοστ κατασκευής', 'Εργοστάσιο κατασκευής', 'Κατασκευαστής', 'Κατασκευαστης']) || getValueNearLabel(normalized, ['Εργοστ. κατασκευής', 'Εργοστ κατασκευής', 'Εργοστάσιο κατασκευής', 'Κατασκευαστής', 'Κατασκευαστης']),
-    model: getStructuredValueRightOfLabel(fullTextAnnotation, ['Τύπος', 'Τύπος / Μοντέλο', 'Μοντέλο'], ['Τύπος κινητήρα', 'Κωδικός Έγκρισης τύπου', 'Έγκρισης τύπου']) || getValueNearLabel(normalized, ['Τύπος', 'Τύπος / Μοντέλο', 'Μοντέλο'], ['Τύπος κινητήρα', 'Κωδικός Έγκρισης τύπου', 'Έγκρισης τύπου']),
+    manufacturer: getManufacturerStrictRightOfLabel(fullTextAnnotation),
+    model: getMeLicenseValueRightOfLabel(fullTextAnnotation, ['Τύπος', 'Τύπος / Μοντέλο', 'Μοντέλο'], ['Τύπος κινητήρα', 'Κωδικός Έγκρισης τύπου', 'Έγκρισης τύπου']) || getValueNearLabel(normalized, ['Τύπος', 'Τύπος / Μοντέλο', 'Μοντέλο'], ['Τύπος κινητήρα', 'Κωδικός Έγκρισης τύπου', 'Έγκρισης τύπου']),
   };
 }
 
-
-function getCategoryFromOcrDocumentType(documentType: string, typeOptions: string[]): string | undefined {
-  if (documentType.includes('Μηχανήματος')) {
-    return typeOptions.find(option => option.toLowerCase().includes('μηχ')) ?? 'Μηχάνημα Έργου';
-  }
-
-  if (documentType.includes('Οχήματος')) {
-    return typeOptions.find(option => option.toLowerCase().includes('όχη') || option.toLowerCase().includes('οχη')) ?? 'Όχημα';
-  }
-
-  return undefined;
-}
 
 
 export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOptions, typeOptions }: Props) {
@@ -292,7 +420,6 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
     status: 'Active',
   });
 
-  const [ocrDocumentType, setOcrDocumentType] = useState('Άδεια Κυκλοφορίας Οχήματος');
   const [ocrFileName, setOcrFileName] = useState('');
   const [ocrPreviewUrl, setOcrPreviewUrl] = useState<string | null>(null);
   const [ocrStatus, setOcrStatus] = useState('');
@@ -322,10 +449,6 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
       URL.revokeObjectURL(ocrPreviewUrl);
     }
 
-    if (ocrDocumentType.includes('Μηχανήματος')) {
-      setForm(prev => ({ ...prev, type: 'Μηχάνημα Έργου' }));
-    }
-
     setOcrLoading(true);
     setOcrFileName(file.name);
     setOcrPreviewUrl(URL.createObjectURL(file));
@@ -333,7 +456,7 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
     setOcrExtractedFields([]);
 
     try {
-      const result = await dataProvider.extractDocumentText(file, { documentType: ocrDocumentType });
+      const result = await dataProvider.extractDocumentText(file, { documentType: 'VehicleInitialDocument' });
       const text = result.text ?? '';
 
       const isDemoOcr = (result as { status?: string }).status === 'demo';
@@ -346,9 +469,7 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
       const nextModel = parsedVehicleFields.model;
 
       setForm(prev => {
-        const documentCategory = ocrDocumentType.includes('Μηχανήματος')
-          ? typeOptions.find(option => option.toLowerCase().includes('μηχ')) ?? 'Μηχάνημα Έργου'
-          : prev.type;
+        const documentCategory = detectVehicleCategoryFromOcrText(text, typeOptions) ?? prev.type;
 
         return {
           ...prev,
@@ -390,25 +511,10 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
 
       <div className="form">
         <SectionCard title="OCR αρχικής καταχώρησης οχήματος / ΜΕ">
-          <FormField label="Τύπος εγγράφου">
-            <select
-              className="field-select"
-              value={ocrDocumentType}
-              onChange={e => {
-                const nextDocumentType = e.target.value;
-                setOcrDocumentType(nextDocumentType);
+          <p className="row-subtitle" style={{ marginTop: 8 }}>
+            Ανεβάστε άδεια ή αποδεικτικό αριθμού πλαισίου/VIN. Το OCR θα προσπαθήσει να αναγνωρίσει αριθμό άδειας, αριθμό πλαισίου, εργοστάσιο και τύπο/μοντέλο. Η κατηγορία παραμένει διαθέσιμη για τελικό έλεγχο.
+          </p>
 
-                const nextCategory = getCategoryFromOcrDocumentType(nextDocumentType, typeOptions);
-                if (nextCategory) {
-                  update('type', nextCategory);
-                }
-              }}
-            >
-              <option value="Άδεια Κυκλοφορίας Οχήματος">Άδεια Κυκλοφορίας Οχήματος</option>
-              <option value="Άδεια Κυκλοφορίας / Χρήσης Μηχανήματος Έργου">Άδεια Κυκλοφορίας / Χρήσης Μηχανήματος Έργου</option>
-              <option value="Αποδεικτικό Αριθμού Πλαισίου">Αποδεικτικό Αριθμού Πλαισίου / VIN</option>
-            </select>
-          </FormField>
 
           <input ref={ocrInputRef} className="field-input" style={{ marginTop: 10 }} type="file" accept="image/*,.pdf" onChange={handleOcrFileChange} />
 

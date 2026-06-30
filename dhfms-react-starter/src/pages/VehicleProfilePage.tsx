@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react';
+import { ChangeEvent, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, FileText, History, Upload } from 'lucide-react';
+import { dataProvider } from '../services/dataProvider';
 import type { EvidenceDocument, Vehicle } from '../types/models';
 
 interface VehicleProfilePageProps {
   vehicle?: Vehicle;
   documents: EvidenceDocument[];
   onBack: () => void;
+  onAddDocument: (document: Omit<EvidenceDocument, 'id'>) => void;
 }
 
 type VehicleDocumentCategory = {
@@ -15,6 +17,19 @@ type VehicleDocumentCategory = {
   expiry?: string;
   keywords: string[];
   hasExpiry: boolean;
+};
+
+type InsuranceOcrResult = {
+  startDate?: string;
+  expiryDate?: string;
+  matchedVehicle: boolean;
+  warning?: string;
+};
+
+type PendingVehicleDocument = Omit<EvidenceDocument, 'id'> & {
+  fileName?: string;
+  matchedVehicle?: boolean;
+  warning?: string;
 };
 
 function isExpired(date?: string): boolean {
@@ -53,8 +68,115 @@ function statusLabel(category: VehicleDocumentCategory, current?: EvidenceDocume
   return 'Ενεργό';
 }
 
-export function VehicleProfilePage({ vehicle, documents, onBack }: VehicleProfilePageProps) {
+function normalizeForSearch(value?: string): string {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '')
+    .replace(/[^\p{L}\p{N}]/gu, '')
+    .toUpperCase()
+    .replace(/Μ/g, 'M')
+    .replace(/Ε/g, 'E')
+    .replace(/Ι/g, 'I')
+    .replace(/Χ/g, 'X');
+}
+
+function parseDateToIso(value: string): string | undefined {
+  const match = value.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+  if (!match) return undefined;
+
+  const day = match[1].padStart(2, '0');
+  const month = match[2].padStart(2, '0');
+  const rawYear = match[3];
+  const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
+
+  return `${year}-${month}-${day}`;
+}
+
+function extractAllIsoDates(text: string): string[] {
+  const matches = Array.from(text.matchAll(/\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}/g));
+  return matches
+    .map(match => parseDateToIso(match[0]))
+    .filter((date): date is string => Boolean(date));
+}
+
+function extractDateNearLabel(text: string, labels: string[]): string | undefined {
+  const lines = text
+    .split(/\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  const normalizedLabels = labels.map(normalizeForSearch);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const normalizedLine = normalizeForSearch(lines[index]);
+
+    if (!normalizedLabels.some(label => normalizedLine.includes(label))) {
+      continue;
+    }
+
+    const sameLineDate = parseDateToIso(lines[index]);
+    if (sameLineDate) return sameLineDate;
+
+    for (let offset = 1; offset <= 4; offset += 1) {
+      const nextLineDate = parseDateToIso(lines[index + offset] ?? '');
+      if (nextLineDate) return nextLineDate;
+    }
+  }
+
+  return undefined;
+}
+
+function parseInsuranceOcr(text: string, vehicle: Vehicle): InsuranceOcrResult {
+  const normalizedText = normalizeForSearch(text);
+  const normalizedPlate = normalizeForSearch(vehicle.plate);
+  const normalizedChassis = normalizeForSearch(vehicle.chassisNumber);
+
+  const matchedPlate = Boolean(normalizedPlate && normalizedText.includes(normalizedPlate));
+  const matchedChassis = Boolean(normalizedChassis && normalizedText.includes(normalizedChassis));
+  const matchedVehicle = matchedPlate || matchedChassis;
+
+  const allDates = extractAllIsoDates(text);
+
+  let startDate = extractDateNearLabel(text, [
+    'Έναρξη Ασφάλισης',
+    'Εναρξη Ασφαλισης',
+    'Έναρξη',
+    'Εναρξη',
+  ]);
+
+  let expiryDate = extractDateNearLabel(text, [
+    'Λήξη Ασφάλισης',
+    'Ληξη Ασφαλισης',
+    'Λήξη',
+    'Ληξη',
+  ]);
+
+  if (allDates.length >= 3 && (!startDate || !expiryDate)) {
+    startDate = startDate ?? allDates[1];
+    expiryDate = expiryDate ?? allDates[2];
+  } else if (allDates.length >= 2 && (!startDate || !expiryDate)) {
+    startDate = startDate ?? allDates[0];
+    expiryDate = expiryDate ?? allDates[1];
+  }
+
+  return {
+    startDate,
+    expiryDate,
+    matchedVehicle,
+    warning: matchedVehicle
+      ? undefined
+      : 'Δεν επιβεβαιώθηκε αυτόματα ταύτιση με αριθμό άδειας/πινακίδα ή αριθμό πλαισίου.',
+  };
+}
+
+export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }: VehicleProfilePageProps) {
   const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
+  const [uploadCategoryKey, setUploadCategoryKey] = useState<string | null>(null);
+  const [ocrStatus, setOcrStatus] = useState('');
+  const [ocrDetails, setOcrDetails] = useState('');
+  const [pendingDocument, setPendingDocument] = useState<PendingVehicleDocument | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const categories = useMemo<VehicleDocumentCategory[]>(() => {
     const extra = vehicle as Vehicle & {
@@ -65,7 +187,7 @@ export function VehicleProfilePage({ vehicle, documents, onBack }: VehicleProfil
     return [
       {
         key: 'license',
-        title: 'Άδεια',
+        title: 'Άδεια / VIN',
         subtitle: 'Άδεια κυκλοφορίας / άδεια χρήσης ΜΕ / αποδεικτικό αριθμού πλαισίου',
         keywords: ['άδεια', 'κυκλοφορίας', 'registration', 'license', 'vin', 'πλαισίου'],
         hasExpiry: false,
@@ -102,8 +224,97 @@ export function VehicleProfilePage({ vehicle, documents, onBack }: VehicleProfil
         keywords: ['ανυψωτικής', 'ανύψωσης', 'lifting'],
         hasExpiry: true,
       },
+      {
+        key: 'other',
+        title: 'Άλλο έγγραφο',
+        subtitle: 'Οποιοδήποτε πρόσθετο έγγραφο σχετικό με το όχημα / Μ.Ε.',
+        keywords: ['άλλο', 'other'],
+        hasExpiry: false,
+      },
     ];
   }, [vehicle]);
+
+  function confirmPendingDocument() {
+    if (!pendingDocument) return;
+
+    onAddDocument({
+      entityType: pendingDocument.entityType,
+      entityId: pendingDocument.entityId,
+      documentType: pendingDocument.documentType,
+      issueDate: pendingDocument.issueDate,
+      expiryDate: pendingDocument.expiryDate,
+      status: pendingDocument.expiryDate && isExpired(pendingDocument.expiryDate) ? 'Expired' : 'Active',
+      url: pendingDocument.url,
+    });
+
+    setOcrStatus('Το έγγραφο καταχωρήθηκε μετά από επιβεβαίωση χρήστη.');
+    setOcrDetails('');
+    setPendingDocument(null);
+  }
+
+  async function handleDocumentFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    const category = categories.find(item => item.key === uploadCategoryKey);
+
+    event.target.value = '';
+
+    if (!file || !vehicle || !category) return;
+
+    setOcrStatus('Ανάγνωση εγγράφου…');
+    setOcrDetails('');
+    setPendingDocument(null);
+
+    try {
+      const result = await dataProvider.extractDocumentText(file, {
+        documentType: category.title,
+        vehicleId: vehicle.id,
+        vehiclePlate: vehicle.plate,
+      });
+
+      const text = result.text ?? '';
+      const evidenceUrl = URL.createObjectURL(file);
+
+      if (category.key === 'insurance') {
+        const parsed = parseInsuranceOcr(text, vehicle);
+
+        setPendingDocument({
+          entityType: 'vehicle',
+          entityId: vehicle.id,
+          documentType: 'Ασφάλεια',
+          issueDate: parsed.startDate,
+          expiryDate: parsed.expiryDate,
+          status: 'Active',
+          url: evidenceUrl,
+          fileName: file.name,
+          matchedVehicle: parsed.matchedVehicle,
+          warning: parsed.warning,
+        });
+
+        setOcrStatus('Διαβάστηκε ασφαλιστήριο. Επιβεβαιώστε ή διορθώστε τις ημερομηνίες πριν την καταχώρηση.');
+        setOcrDetails([
+          `Αρχείο: ${file.name}`,
+          `Ταύτιση με όχημα: ${parsed.matchedVehicle ? 'Ναι' : 'Όχι / απαιτείται έλεγχος'}`,
+          parsed.warning,
+        ].filter(Boolean).join(' · '));
+
+        return;
+      }
+
+      onAddDocument({
+        entityType: 'vehicle',
+        entityId: vehicle.id,
+        documentType: category.title,
+        status: 'Active',
+        url: evidenceUrl,
+      });
+
+      setOcrStatus('Το έγγραφο καταχωρήθηκε προσωρινά στην καρτέλα.');
+      setOcrDetails(category.title);
+    } catch (error) {
+      console.warn('Vehicle document OCR/upload failed.', error);
+      setOcrStatus('Δεν ήταν δυνατή η ανάγνωση/καταχώρηση του εγγράφου.');
+    }
+  }
 
   if (!vehicle) {
     return (
@@ -121,6 +332,8 @@ export function VehicleProfilePage({ vehicle, documents, onBack }: VehicleProfil
 
   return (
     <div className="page">
+      <input ref={fileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={handleDocumentFileChange} />
+
       <div className="page-header">
         <div>
           <button className="secondary-btn" type="button" onClick={onBack}>
@@ -133,9 +346,66 @@ export function VehicleProfilePage({ vehicle, documents, onBack }: VehicleProfil
       </div>
 
       <div className="card">
+        <h2>Βασικά στοιχεία</h2>
+        <div className="row">
+          <div className="row-main">
+            <div className="row-subtitle">
+              <strong>Αριθμός άδειας / πινακίδα:</strong> {vehicle.plate || '—'} · <strong>Αριθμός πλαισίου:</strong> {vehicle.chassisNumber || '—'} · <strong>Εργοστάσιο:</strong> {vehicle.manufacturer || '—'} · <strong>Τύπος/μοντέλο:</strong> {vehicle.model || '—'}
+            </div>
+            <div className="row-subtitle" style={{ marginTop: 6 }}>
+              <strong>Λήξη ασφάλειας:</strong> {vehicle.insuranceExpiry || 'Δεν έχει καταχωρηθεί'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {ocrStatus && (
+        <div className="card">
+          <h2>Τελευταίο OCR εγγράφου</h2>
+          <p className="row-subtitle">{ocrStatus}</p>
+          {ocrDetails && <p className="row-subtitle">{ocrDetails}</p>}
+
+          {pendingDocument && (
+            <div className="form" style={{ marginTop: 12 }}>
+              <div className="form-grid">
+                <label>
+                  <span>Έναρξη ασφάλισης</span>
+                  <input
+                    className="field-input"
+                    type="date"
+                    value={pendingDocument.issueDate ?? ''}
+                    onChange={e => setPendingDocument(prev => prev ? { ...prev, issueDate: e.target.value } : prev)}
+                  />
+                </label>
+
+                <label>
+                  <span>Λήξη ασφάλισης</span>
+                  <input
+                    className="field-input"
+                    type="date"
+                    value={pendingDocument.expiryDate ?? ''}
+                    onChange={e => setPendingDocument(prev => prev ? { ...prev, expiryDate: e.target.value } : prev)}
+                  />
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                <button className="primary-btn" type="button" onClick={confirmPendingDocument}>
+                  Επιβεβαίωση & καταχώρηση
+                </button>
+                <button className="secondary-btn" type="button" onClick={() => setPendingDocument(null)}>
+                  Ακύρωση
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="card">
         <h2>Έγγραφα συμμόρφωσης</h2>
         <p className="row-subtitle">
-          Η τρέχουσα έκδοση εμφανίζεται πρώτη. Τα παλαιά/ληγμένα έγγραφα διατηρούνται στο ιστορικό.
+          Η τρέχουσα έκδοση εμφανίζεται πρώτη. Τα παλαιά/ληγμένα έγγραφα διατηρούνται στο ιστορικό. Κάθε νέο upload δημιουργεί νέα εγγραφή.
         </p>
 
         {categories.map(category => {
@@ -192,7 +462,14 @@ export function VehicleProfilePage({ vehicle, documents, onBack }: VehicleProfil
                   <History size={17} /> Ιστορικό
                 </button>
 
-                <button className="primary-btn" type="button" disabled>
+                <button
+                  className="primary-btn"
+                  type="button"
+                  onClick={() => {
+                    setUploadCategoryKey(category.key);
+                    fileInputRef.current?.click();
+                  }}
+                >
                   <Upload size={17} /> Νέο έγγραφο
                 </button>
               </div>

@@ -64,6 +64,23 @@ export default function App() {
     setPage('vehicles');
   }
 
+  function handleAddVehicleDocument(document: Omit<EvidenceDocument, 'id'>) {
+    const createdDocument: EvidenceDocument = {
+      ...document,
+      id: Date.now(),
+    };
+
+    setDocuments(prev => [createdDocument, ...prev]);
+
+    if (document.entityType === 'vehicle' && document.documentType.toLowerCase().includes('ασφάλεια')) {
+      setVehicles(prev => prev.map(vehicle =>
+        vehicle.id === document.entityId
+          ? { ...vehicle, insuranceExpiry: document.expiryDate }
+          : vehicle
+      ));
+    }
+  }
+
   function renderPage() {
     switch (page) {
       case 'dashboard':
@@ -87,7 +104,7 @@ export default function App() {
       case 'vehicle-form':
         return <VehicleFormPage onBack={() => setPage('vehicles')} onSave={handleCreateVehicle} sites={sites} selectedSiteId={selectedSiteId} ownerOptions={vehicleOwnerOptions} typeOptions={vehicleTypeOptions} />;
       case 'vehicle-profile':
-        return <VehicleProfilePage vehicle={selectedVehicle} documents={documents.filter(document => document.entityType === 'vehicle' && document.entityId === selectedVehicleId)} onBack={() => setPage('vehicles')} />;
+        return <VehicleProfilePage vehicle={selectedVehicle} documents={documents.filter(document => document.entityType === 'vehicle' && document.entityId === selectedVehicleId)} onBack={() => setPage('vehicles')} onAddDocument={handleAddVehicleDocument} />;
       case 'equipment':
         return <GenericListPage title="Εξοπλισμός" subtitle="Εργαλεία, πιστοποιητικά, QR και έλεγχοι" addLabel="Νέο στοιχείο" showOcrSection={false} rows={[{ id: 1, title: 'Ανυψωτικό μηχάνημα', subtitle: 'EQP-001 · Εργοτάξιο Κιλκίς', status: 'Active', qrType: 'EQP', qrLabel: 'Ανυψωτικό μηχάνημα' }]} />;
       case 'sites':
