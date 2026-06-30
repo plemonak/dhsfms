@@ -105,6 +105,9 @@ function normalizeForSearch(value?: string): string {
 }
 
 function parseDateToIso(value: string): string | undefined {
+  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) return value;
+
   const match = value.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
   if (!match) return undefined;
 
@@ -114,6 +117,10 @@ function parseDateToIso(value: string): string | undefined {
   const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
 
   return `${year}-${month}-${day}`;
+}
+
+function normalizeDateInput(value: string): string {
+  return parseDateToIso(value) ?? value;
 }
 
 function extractAllIsoDates(text: string): string[] {
@@ -416,9 +423,11 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
                   <span>Έναρξη ασφάλισης</span>
                   <input
                     className="field-input"
-                    type="date"
-                    value={pendingDocument.issueDate ?? ''}
-                    onChange={e => setPendingDocument(prev => prev ? { ...prev, issueDate: e.target.value } : prev)}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="ηη/μμ/εεεε"
+                    value={formatDateForDisplay(pendingDocument.issueDate)}
+                    onChange={e => setPendingDocument(prev => prev ? { ...prev, issueDate: normalizeDateInput(e.target.value) } : prev)}
                   />
                 </label>
 
@@ -426,9 +435,11 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
                   <span>Λήξη ασφάλισης</span>
                   <input
                     className="field-input"
-                    type="date"
-                    value={pendingDocument.expiryDate ?? ''}
-                    onChange={e => setPendingDocument(prev => prev ? { ...prev, expiryDate: e.target.value } : prev)}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="ηη/μμ/εεεε"
+                    value={formatDateForDisplay(pendingDocument.expiryDate)}
+                    onChange={e => setPendingDocument(prev => prev ? { ...prev, expiryDate: normalizeDateInput(e.target.value) } : prev)}
                   />
                 </label>
               </div>
