@@ -71,6 +71,26 @@ function statusLabel(category: VehicleDocumentCategory, current?: EvidenceDocume
   return 'Ενεργό';
 }
 
+function formatDateForDisplay(date?: string): string {
+  if (!date) return '';
+
+  const isoMatch = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  }
+
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+
+  return new Intl.DateTimeFormat('el-GR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(parsed);
+}
+
 function normalizeForSearch(value?: string): string {
   return (value ?? '')
     .normalize('NFD')
@@ -370,7 +390,7 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
               <strong>Αριθμός άδειας / πινακίδα:</strong> {vehicle.plate || '—'} · <strong>Αριθμός πλαισίου:</strong> {vehicle.chassisNumber || '—'} · <strong>Εργοστάσιο:</strong> {vehicle.manufacturer || '—'} · <strong>Τύπος/μοντέλο:</strong> {vehicle.model || '—'}
             </div>
             <div className="row-subtitle" style={{ marginTop: 6 }}>
-              <strong>Έναρξη ασφάλειας:</strong> {currentInsuranceDocument?.issueDate || 'Δεν έχει καταχωρηθεί'} · <strong>Λήξη ασφάλειας:</strong> {vehicle.insuranceExpiry || currentInsuranceDocument?.expiryDate || 'Δεν έχει καταχωρηθεί'}
+              <strong>Έναρξη ασφάλειας:</strong> {formatDateForDisplay(currentInsuranceDocument?.issueDate) || 'Δεν έχει καταχωρηθεί'} · <strong>Λήξη ασφάλειας:</strong> {formatDateForDisplay(vehicle.insuranceExpiry || currentInsuranceDocument?.expiryDate) || 'Δεν έχει καταχωρηθεί'}
             </div>
           </div>
         </div>
@@ -465,7 +485,7 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
                 <div style={{ marginTop: 8 }}>
                   <strong>Κατάσταση:</strong> {label}
                   {category.hasExpiry && (
-                    <span> · <strong>Λήξη:</strong> {expiry || 'Δεν έχει καταχωρηθεί'}</span>
+                    <span> · <strong>Λήξη:</strong> {formatDateForDisplay(expiry) || 'Δεν έχει καταχωρηθεί'}</span>
                   )}
                 </div>
 
@@ -476,7 +496,7 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
                     ) : (
                       historyDocuments.map(document => (
                         <div className="row-subtitle" key={document.id}>
-                          {document.documentType} · Λήξη: {document.expiryDate || '—'} · Status: {document.status}
+                          {document.documentType} · Λήξη: {formatDateForDisplay(document.expiryDate) || '—'} · Status: {document.status}
                           {document.url && (
                             <> · <a href={document.url} target="_blank" rel="noreferrer">Άνοιγμα evidence</a></>
                           )}
