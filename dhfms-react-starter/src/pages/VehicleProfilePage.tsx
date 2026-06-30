@@ -37,13 +37,16 @@ type PendingVehicleDocument = Omit<EvidenceDocument, 'id'> & {
 
 function isExpired(date?: string): boolean {
   if (!date) return false;
-  return new Date(date) < new Date(new Date().toDateString());
+  const parsedDate = parseDateForComparison(date);
+  if (!parsedDate) return false;
+  return parsedDate < new Date(new Date().toDateString());
 }
 
 function isExpiringSoon(date?: string): boolean {
   if (!date) return false;
   const today = new Date(new Date().toDateString());
-  const expiry = new Date(date);
+  const expiry = parseDateForComparison(date);
+  if (!expiry) return false;
   const diffDays = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   return diffDays >= 0 && diffDays <= 30;
 }
@@ -55,9 +58,9 @@ function documentMatches(document: EvidenceDocument, keywords: string[]): boolea
 
 function sortDocuments(documents: EvidenceDocument[]): EvidenceDocument[] {
   return [...documents].sort((a, b) => {
-    const aDate = a.expiryDate ?? a.issueDate ?? '';
-    const bDate = b.expiryDate ?? b.issueDate ?? '';
-    return bDate.localeCompare(aDate);
+    const aDate = parseDateForComparison(a.expiryDate ?? a.issueDate);
+    const bDate = parseDateForComparison(b.expiryDate ?? b.issueDate);
+    return (bDate?.getTime() ?? 0) - (aDate?.getTime() ?? 0);
   });
 }
 
@@ -79,16 +82,31 @@ function formatDateForDisplay(date?: string): string {
     return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
   }
 
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
+  const slashMatch = date.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+  if (slashMatch) {
+    const first = Number(slashMatch[1]);
+    const second = Number(slashMatch[2]);
+    const year = slashMatch[3].length === 2 ? `20${slashMatch[3]}` : slashMatch[3];
+
+    // Legacy flow/browser dates may arrive as MM/DD/YYYY. Ambiguous dates are treated as legacy MM/DD.
+    const day = first > 12 ? first : second;
+    const month = first > 12 ? second : first;
+
+    return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
   }
 
-  return new Intl.DateTimeFormat('el-GR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(parsed);
+  return date;
+}
+
+function parseDateForComparison(date?: string): Date | undefined {
+  const displayDate = formatDateForDisplay(date);
+  const match = displayDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return undefined;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  return new Date(year, month - 1, day);
 }
 
 function normalizeForSearch(value?: string): string {
