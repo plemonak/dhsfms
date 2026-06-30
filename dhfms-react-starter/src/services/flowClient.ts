@@ -419,6 +419,8 @@ export async function uploadEvidence(file: File, folderPath: string): Promise<{ 
   const payload = {
     fileName: file.name,
     folderPath,
+    siteUrl: integrationConfig.sharePointSiteUrl,
+    rootFolder: integrationConfig.evidenceRootFolder,
     contentType: file.type || 'application/octet-stream',
     fileContentBase64: await fileToBase64(file),
     flowType: 'upload-evidence',

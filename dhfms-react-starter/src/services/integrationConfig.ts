@@ -25,6 +25,7 @@ export const integrationConfig = {
     assets: readEnv('VITE_SHAREPOINT_LIST_ASSETS') ?? 'Assets',
   },
   powerAutomateBaseUrl: readEnv('VITE_POWERAUTOMATE_BASE_URL'),
+  evidenceRootFolder: readEnv('VITE_SHAREPOINT_EVIDENCE_ROOT_FOLDER'),
   powerAutomateFlows: {
     getEmployees: readEnv('VITE_POWERAUTOMATE_FLOW_GET_EMPLOYEES'),
     getVehicles: readEnv('VITE_POWERAUTOMATE_FLOW_GET_VEHICLES'),
