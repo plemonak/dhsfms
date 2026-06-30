@@ -235,10 +235,10 @@ export async function getSitesFlow(fallback: Site[]): Promise<Site[]> {
     return {
       ...site,
       id: Number(raw.id ?? raw.ID ?? 0),
-      name: toDisplayText(raw.name) ?? 'Site',
-      phase: toDisplayText(raw.phase),
-      status: (toDisplayText(raw.status) ?? 'Active') as Site['status'],
-      coordinates: toDisplayText(raw.coordinates),
+      name: toDisplayText(raw.name ?? raw.Name ?? raw.Title ?? raw.SiteName ?? raw.siteName) ?? 'Site',
+      phase: toDisplayText(raw.phase ?? raw.Phase),
+      status: (toDisplayText(raw.status ?? raw.Status) ?? 'Active') as Site['status'],
+      coordinates: toDisplayText(raw.coordinates ?? raw.Coordinates),
     };
   });
 }

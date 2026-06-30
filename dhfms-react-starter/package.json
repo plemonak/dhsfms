@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc && vite build",
+    "doctor:integrations": "node scripts/doctor-integrations.mjs",
+    "env:write": "node scripts/write-env-from-secrets.mjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
