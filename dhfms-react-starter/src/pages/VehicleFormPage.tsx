@@ -273,7 +273,7 @@ function detectVehicleCategoryFromOcrText(text: string, typeOptions: string[]): 
 function getManufacturerStrictRightOfLabel(annotation: unknown): string {
   return getMeLicenseValueRightOfLabel(
     annotation,
-    ['Εργοστ. κατασκευής', 'Εργοστ κατασκευής'],
+    ['Εργοστ. κατασκευής', 'Εργοστ κατασκευής', 'Εργοστάσιο κατασκευής', 'Μάρκα', 'Κατασκευαστής'],
     ['κινητ', 'ΧΩΡ', 'ΚΑΔ', 'ΕΚΣΚΑΦΕΑ']
   );
 }
@@ -393,18 +393,81 @@ function extractMeLicenseNumber(text: string, fullTextAnnotation?: unknown): str
   return `ΜΕ ${fallbackMatch[1]}${fallbackMatch[2] ? ' ΙΧ' : ''}`;
 }
 
+function extractLicenseNumber(text: string, fullTextAnnotation?: unknown): string {
+  const meLicense = extractMeLicenseNumber(text, fullTextAnnotation);
+  if (meLicense) {
+    return meLicense;
+  }
+
+  const structuredValue = getMeLicenseValueRightOfLabel(fullTextAnnotation, [
+    'Αριθμός Κυκλοφορίας',
+    'Αριθμος Κυκλοφοριας',
+    'Αρ. Κυκλοφορίας',
+    'Αρ Κυκλοφορίας',
+    'Πινακίδα',
+    'Registration Number',
+  ]);
+
+  const textValue =
+    structuredValue ||
+    getValueNearLabel(text, [
+      'Αριθμός Κυκλοφορίας',
+      'Αριθμος Κυκλοφοριας',
+      'Αρ. Κυκλοφορίας',
+      'Αρ Κυκλοφορίας',
+      'Πινακίδα',
+      'RegistrationNumber',
+      'Registration Number',
+    ]);
+
+  return cleanOcrCandidate(textValue).replace(/\s+/g, '');
+}
+
+function extractManufacturer(text: string, fullTextAnnotation?: unknown): string {
+  return (
+    getManufacturerStrictRightOfLabel(fullTextAnnotation) ||
+    getValueNearLabel(text, [
+      'Εργοστ. κατασκευής',
+      'Εργοστ κατασκευής',
+      'Εργοστάσιο κατασκευής',
+      'Μάρκα',
+      'Κατασκευαστής',
+      'Make',
+    ], ['κινητ', 'κινητήρα', 'engine'])
+  );
+}
+
+function extractVehicleType(text: string, fullTextAnnotation?: unknown): string {
+  return (
+    getMeLicenseValueRightOfLabel(fullTextAnnotation, [
+      'Τύπος',
+      'Τύπος / Μοντέλο',
+      'Μοντέλο',
+      'Type',
+      'Model',
+    ], ['Τύπος κινητήρα', 'Κωδικός Έγκρισης τύπου', 'Έγκρισης τύπου']) ||
+    getValueNearLabel(text, [
+      'Τύπος',
+      'Τύπος / Μοντέλο',
+      'Μοντέλο',
+      'Type',
+      'Model',
+    ], ['Τύπος κινητήρα', 'Κωδικός Έγκρισης τύπου', 'Έγκρισης τύπου'])
+  );
+}
+
 
 function parseBasicVehicleOcrFields(text: string, fullTextAnnotation?: unknown): ParsedVehicleOcrFields {
   const normalized = normalizeOcrText(text);
-  const plate = extractMeLicenseNumber(normalized, fullTextAnnotation);
+  const plate = extractLicenseNumber(normalized, fullTextAnnotation);
 
   const chassisCandidate = getMeLicenseValueRightOfLabel(fullTextAnnotation, ['Αριθμός Πλαισίου', 'Αριθμος Πλαισιου', 'VIN']) || getValueNearLabel(normalized, ['Αριθμός Πλαισίου', 'Αριθμος Πλαισιου', 'Αρ. Πλαισίου', 'Αρ Πλαισίου', 'Πλαίσιο', 'Πλαισίου', 'VIN']);
 
   return {
     plate,
     chassisNumber: isValidChassisCandidate(chassisCandidate) ? chassisCandidate : '',
-    manufacturer: getManufacturerStrictRightOfLabel(fullTextAnnotation),
-    model: getMeLicenseValueRightOfLabel(fullTextAnnotation, ['Τύπος', 'Τύπος / Μοντέλο', 'Μοντέλο'], ['Τύπος κινητήρα', 'Κωδικός Έγκρισης τύπου', 'Έγκρισης τύπου']) || getValueNearLabel(normalized, ['Τύπος', 'Τύπος / Μοντέλο', 'Μοντέλο'], ['Τύπος κινητήρα', 'Κωδικός Έγκρισης τύπου', 'Έγκρισης τύπου']),
+    manufacturer: extractManufacturer(normalized, fullTextAnnotation),
+    model: extractVehicleType(normalized, fullTextAnnotation),
   };
 }
 
@@ -482,13 +545,12 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
         };
       });
 
-      setOcrExtractedFields(
-        text
-          .split(/\n/)
-          .map(line => line.trim())
-          .filter(Boolean)
-          .slice(0, 40)
-      );
+      setOcrExtractedFields([
+        `Αριθμός άδειας / κυκλοφορίας: ${nextPlate || '—'}`,
+        `Αριθμός πλαισίου: ${nextChassisNumber || '—'}`,
+        `Εργοστ. κατασκευής: ${nextManufacturer || '—'}`,
+        `Τύπος: ${nextModel || '—'}`,
+      ]);
 
       setOcrStatus(
         isDemoOcr
@@ -512,7 +574,7 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
       <div className="form">
         <SectionCard title="OCR αρχικής καταχώρησης οχήματος / ΜΕ">
           <p className="row-subtitle" style={{ marginTop: 8 }}>
-            Ανεβάστε άδεια ή αποδεικτικό αριθμού πλαισίου/VIN. Το OCR θα προσπαθήσει να αναγνωρίσει αριθμό άδειας, αριθμό πλαισίου, εργοστάσιο και τύπο/μοντέλο. Η κατηγορία παραμένει διαθέσιμη για τελικό έλεγχο.
+            Ανεβάστε άδεια ή αποδεικτικό αριθμού πλαισίου/VIN. Το OCR θα προσπαθήσει να αναγνωρίσει μόνο αριθμό άδειας, αριθμό πλαισίου, εργοστ. κατασκευής και τύπο.
           </p>
 
 
@@ -546,11 +608,11 @@ export function VehicleFormPage({ onBack, onSave, sites, selectedSiteId, ownerOp
               <input className="field-input" value={form.chassisNumber ?? ''} onChange={e => update('chassisNumber', e.target.value)} />
             </FormField>
 
-            <FormField label="Εργοστάσιο κατασκευής">
+            <FormField label="Εργοστ. κατασκευής">
               <input className="field-input" value={form.manufacturer ?? ''} onChange={e => update('manufacturer', e.target.value)} />
             </FormField>
 
-            <FormField label="Τύπος / μοντέλο">
+            <FormField label="Τύπος">
               <input className="field-input" value={form.model ?? ''} onChange={e => update('model', e.target.value)} />
             </FormField>
 

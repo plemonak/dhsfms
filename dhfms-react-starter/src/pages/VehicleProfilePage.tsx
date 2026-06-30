@@ -412,7 +412,7 @@ export function VehicleProfilePage({ vehicle, documents, onBack, onAddDocument }
         <div className="row">
           <div className="row-main">
             <div className="row-subtitle">
-              <strong>Αριθμός άδειας / πινακίδα:</strong> {vehicle.plate || '—'} · <strong>Αριθμός πλαισίου:</strong> {vehicle.chassisNumber || '—'} · <strong>Εργοστάσιο:</strong> {vehicle.manufacturer || '—'} · <strong>Τύπος/μοντέλο:</strong> {vehicle.model || '—'}
+              <strong>Αριθμός άδειας / κυκλοφορίας:</strong> {vehicle.plate || '—'} · <strong>Αριθμός πλαισίου:</strong> {vehicle.chassisNumber || '—'} · <strong>Εργοστ. κατασκευής:</strong> {vehicle.manufacturer || '—'} · <strong>Τύπος:</strong> {vehicle.model || '—'}
             </div>
             <div className="row-subtitle" style={{ marginTop: 6 }}>
               <strong>Έναρξη ασφάλειας:</strong> {formatDateForDisplay(currentInsuranceDocument?.issueDate) || 'Δεν έχει καταχωρηθεί'} · <strong>Λήξη ασφάλειας:</strong> {formatDateForDisplay(vehicle.insuranceExpiry || currentInsuranceDocument?.expiryDate) || 'Δεν έχει καταχωρηθεί'}
