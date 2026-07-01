@@ -760,6 +760,8 @@ export async function ocrDocumentPlaceholder(input: {
   vehicleId?: number;
   vehiclePlate?: string;
   fileContentBase64?: string;
+  ocrFeatureType?: 'TEXT_DETECTION' | 'DOCUMENT_TEXT_DETECTION';
+  languageHints?: string[];
 }): Promise<{ text: string; confidence: number; status?: string; documentType?: string; fileName?: string; fullTextAnnotation?: unknown }> {
   const result = await invokeFlowData<Record<string, unknown>>(
     'ocrDocument',
