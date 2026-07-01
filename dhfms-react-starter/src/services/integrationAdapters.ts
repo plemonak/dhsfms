@@ -13,6 +13,7 @@ import {
   getProjectStaffFlow,
   getTrainingTopicsFlow,
   ocrDocumentPlaceholder,
+  uploadEmployeeDocument,
   uploadEvidence,
 } from './flowClient';
 import { documents, trainings } from '../data/mockData';
@@ -122,6 +123,23 @@ export class FlowAdapter {
     return uploadEvidence(file, folderPath);
   }
 
+  async uploadEmployeeDocument(
+    file: File,
+    input: {
+      employeeId: number;
+      employeeName: string;
+      documentType: string;
+      issueDate?: string;
+      expiryDate?: string;
+      issuingAuthority?: string;
+      mandatory?: boolean;
+      aiWarnings?: string;
+      notes?: string;
+    }
+  ) {
+    return uploadEmployeeDocument(file, input);
+  }
+
   async createQrPrintPayload(payload: string) {
     return createQrPrintPayload(payload);
   }
@@ -143,21 +161,56 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-export class OcrAdapter {
-  async extractText(file: File, options: { documentType?: string; vehicleId?: number; vehiclePlate?: string } = {}): Promise<OcrResult> {
-    if (integrationConfig.powerAutomateFlows.ocrDocument) {
-      const fileContentBase64 = arrayBufferToBase64(await file.arrayBuffer());
+async function preprocessImageForOcr(file: File): Promise<File> {
+  if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') {
+    return file;
+  }
 
-      return ocrDocumentPlaceholder({
-        fileName: file.name,
-        contentType: file.type,
-        documentType: options.documentType,
-        vehicleId: options.vehicleId,
-        vehiclePlate: options.vehiclePlate,
-        fileContentBase64,
-      });
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.max(2, Math.min(4, Math.ceil(1800 / Math.max(bitmap.width, bitmap.height))));
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width * scale;
+    canvas.height = bitmap.height * scale;
+
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) {
+      bitmap.close();
+      return file;
     }
 
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    for (let index = 0; index < data.length; index += 4) {
+      const gray = data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114;
+      const contrasted = Math.max(0, Math.min(255, (gray - 128) * 1.55 + 128));
+      data[index] = contrasted;
+      data[index + 1] = contrasted;
+      data[index + 2] = contrasted;
+    }
+
+    context.putImageData(imageData, 0, 0);
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png', 1));
+    if (!blob) {
+      return file;
+    }
+
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '-ocr.png', { type: 'image/png' });
+  } catch (error) {
+    console.warn('OCR image preprocessing failed; using original file.', error);
+    return file;
+  }
+}
+
+export class OcrAdapter {
+  private async extractWithTesseract(file: File): Promise<OcrResult> {
     const worker = await createWorker('ell+eng');
 
     try {
@@ -170,6 +223,39 @@ export class OcrAdapter {
     } finally {
       await worker.terminate();
     }
+  }
+
+  async extractText(file: File, options: { documentType?: string; vehicleId?: number; vehiclePlate?: string } = {}): Promise<OcrResult> {
+    const ocrFile = await preprocessImageForOcr(file);
+
+    if (integrationConfig.powerAutomateFlows.ocrDocument) {
+      const fileContentBase64 = arrayBufferToBase64(await ocrFile.arrayBuffer());
+
+      const flowResult = await ocrDocumentPlaceholder({
+        fileName: ocrFile.name,
+        contentType: ocrFile.type,
+        documentType: options.documentType,
+        vehicleId: options.vehicleId,
+        vehiclePlate: options.vehiclePlate,
+        fileContentBase64,
+        ocrFeatureType: 'DOCUMENT_TEXT_DETECTION',
+        languageHints: ['el', 'en'],
+      });
+
+      if (flowResult.text.trim().length > 0 || file.type === 'application/pdf') {
+        return flowResult;
+      }
+
+      const localResult = await this.extractWithTesseract(ocrFile);
+      return {
+        ...localResult,
+        status: 'local-ocr-fallback',
+        documentType: options.documentType,
+        fileName: file.name,
+      };
+    }
+
+    return this.extractWithTesseract(ocrFile);
   }
 }
 

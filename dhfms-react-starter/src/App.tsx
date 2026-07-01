@@ -5,6 +5,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { EmployeesPage } from './pages/EmployeesPage';
 import { EmployeeProfilePage } from './pages/EmployeeProfilePage';
 import { EmployeeFormPage } from './pages/EmployeeFormPage';
+import type { EmployeeIdentityDocumentDraft } from './pages/EmployeeFormPage';
 import { EvidencePage } from './pages/EvidencePage';
 import { GenericListPage } from './pages/GenericListPage';
 import { QrPage } from './pages/QrPage';
@@ -90,8 +91,37 @@ export default function App() {
     throw new Error(`Υπάρχει ήδη όχημα/Μ.Ε. με ίδια πινακίδα, αριθμό άδειας, VIN/πλαίσιο ή κωδικό: ${duplicate.plate || duplicate.code}`);
   }
 
-  async function handleCreateEmployee(employee: Omit<Employee, 'id' | 'fullName'>) {
+  async function handleCreateEmployee(employee: Omit<Employee, 'id' | 'fullName'>, identityDocument?: EmployeeIdentityDocumentDraft) {
     const created = await dataProvider.createEmployee(employee);
+
+    if (identityDocument) {
+      const uploaded = await dataProvider.uploadEmployeeDocument(identityDocument.sourceFile, {
+        employeeId: created.id,
+        employeeName: created.fullName,
+        documentType: identityDocument.documentType,
+        issueDate: identityDocument.issueDate,
+        expiryDate: identityDocument.expiryDate,
+        issuingAuthority: identityDocument.issuingAuthority,
+        mandatory: true,
+        aiWarnings: identityDocument.aiWarnings,
+        notes: 'Uploaded during employee registration.',
+      });
+
+      const createdDocument: EvidenceDocument = {
+        id: Date.now(),
+        entityType: 'employee',
+        entityId: created.id,
+        documentType: identityDocument.documentType,
+        issueDate: identityDocument.issueDate,
+        expiryDate: identityDocument.expiryDate,
+        status: identityDocument.expiryDate ? 'Active' : 'Completed',
+        url: uploaded.url,
+        fileName: uploaded.fileName,
+      };
+
+      setDocuments(prev => [createdDocument, ...prev]);
+    }
+
     setEmployees(await dataProvider.getEmployees());
     setSelectedEmployeeId(created.id);
     setPage('employee-profile');
