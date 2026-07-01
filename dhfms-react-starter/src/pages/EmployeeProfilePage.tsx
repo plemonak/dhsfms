@@ -421,7 +421,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
               )}
               <div style={{ marginTop: 12 }}>
                 <div className="section-title">Χορηγήσεις ΜΑΠ</div>
-                {ppeIssues.map(issue => (
+                {ppeIssues.filter(issue => issue.status !== 'Cancelled').map(issue => (
                   <div className="row" key={issue.id}>
                     {issue.status !== 'Cancelled' && (
                       <input
