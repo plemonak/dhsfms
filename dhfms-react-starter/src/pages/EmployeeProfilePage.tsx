@@ -190,7 +190,7 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
       issueDate: new Date().toISOString().slice(0, 10),
       issuedBy: issuerName,
       siteName: 'Εργοτάξιο demo',
-      pdfFileName: `${employee.employeeNo}-ppe.pdf`,
+      pdfFileName: `${employee.employeeNo}-ppe-${Date.now()}.pdf`,
       ppeItemsSummary,
       ppeItemsHtml,
       issuerSignatureBase64: ppeSignature,
@@ -324,7 +324,7 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
                   <div style={{ marginTop: 12 }}>
                     <SignaturePad signer={employee.fullName} title="Υπογραφή εργαζομένου" subtitle="Υπογραφή για τη χορήγηση ΜΑΠ" documentId={`ppe-employee-${employee.id}`} onSignatureCaptured={({ signatureData }) => setPpeEmployeeSignature(signatureData)} />
                   </div>
-                  <button className="primary-btn" type="button" style={{ marginTop: 12 }} onClick={() => void savePpeWorkflow()} disabled={!selectedPpeItems.length || !ppeSignature || !ppeEmployeeSignature || !selectedIssuerId}>Αποθήκευση</button>
+                  <button className="primary-btn" type="button" style={{ marginTop: 12 }} onClick={() => void savePpeWorkflow()} disabled={!selectedPpeItems.length || !ppeSignature || !ppeEmployeeSignature || !selectedIssuerId}>Αποθήκευση PDF</button>
                 </div>
               )}
               {ppePdfUrl && (
