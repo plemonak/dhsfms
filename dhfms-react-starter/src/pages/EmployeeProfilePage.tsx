@@ -96,19 +96,25 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     void dataProvider.getSpecialtyMatrix().then(setSpecialtyMatrix);
   }, [employee.id, employee.siteId]);
 
+  // Κανονικοποίηση Unicode (NFC) πριν τη σύγκριση — τα ελληνικά με τόνο μπορεί να έρθουν από το
+  // SharePoint σε διαφορετική (αποσυντεθειμένη) μορφή που φαίνεται ίδια αλλά δεν ταιριάζει σε ===.
+  function normalizeText(value: string): string {
+    return value.normalize('NFC').trim().toLowerCase();
+  }
+
   // Ειδικότητες του εργαζομένου (το Position μπορεί να έχει πάνω από μία, χωρισμένες με " / "),
   // συν το "όλοι" που ισχύει για κάθε εργαζόμενο στο εργοτάξιο.
   const employeeSpecialties = [
     ...employee.position.split(' / ').map(part => part.trim()).filter(Boolean),
     EVERYONE_SPECIALTY,
-  ];
+  ].map(normalizeText);
   const mandatoryPpeCategories = new Set(
     specialtyMatrix
-      .filter(entry => entry.isMandatory && employeeSpecialties.some(specialty => specialty.toLowerCase() === entry.specialty.trim().toLowerCase()))
-      .map(entry => entry.ppeCategory.trim().toLowerCase())
+      .filter(entry => entry.isMandatory && employeeSpecialties.includes(normalizeText(entry.specialty)))
+      .map(entry => normalizeText(entry.ppeCategory))
   );
-  const mandatoryPpeCatalog = ppeCatalog.filter(item => mandatoryPpeCategories.has(item.ppeType.trim().toLowerCase()));
-  const optionalPpeCatalog = ppeCatalog.filter(item => !mandatoryPpeCategories.has(item.ppeType.trim().toLowerCase()));
+  const mandatoryPpeCatalog = ppeCatalog.filter(item => mandatoryPpeCategories.has(normalizeText(item.ppeType)));
+  const optionalPpeCatalog = ppeCatalog.filter(item => !mandatoryPpeCategories.has(normalizeText(item.ppeType)));
   const selectedIssuer = projectStaff.find(person => person.id === selectedIssuerId);
   const selectedIssuerName = selectedIssuer?.displayName ?? selectedIssuer?.title ?? '';
 
