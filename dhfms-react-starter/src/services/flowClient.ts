@@ -1,5 +1,5 @@
 import { integrationConfig, isFlowConfigured } from './integrationConfig';
-import type { Employee, EvidenceDocument, PpeCatalogItem, ProjectStaffMember, SpecialtyMatrixEntry, Site, TrainingTopic, Vehicle } from '../types/models';
+import type { Employee, EvidenceDocument, PpeCatalogItem, PpeIssue, ProjectStaffMember, SpecialtyMatrixEntry, Site, TrainingTopic, Vehicle } from '../types/models';
 
 export interface GenerateTrainingPdfInput {
   trainingSessionId: number;
@@ -665,6 +665,42 @@ export async function cancelPpeIssueFlow(ppeIssueId: number): Promise<{ status: 
     { id: ppeIssueId, status: 'mock-fallback' }
   );
   return { status: result.status };
+}
+
+export async function getPpeIssuesFlow(fallback: PpeIssue[]): Promise<PpeIssue[]> {
+  const result = await invokeFlowData<Array<Record<string, unknown>>>(
+    'getPpeIssues',
+    integrationConfig.powerAutomateFlows.getPpeIssues,
+    { flowType: 'get-ppe-issues' },
+    fallback as unknown as Array<Record<string, unknown>>
+  );
+
+  function lookupId(value: unknown): number {
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      return Number(record.Id ?? 0);
+    }
+    return Number(value ?? 0);
+  }
+
+  function lookupText(value: unknown): string {
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      return String(record.Value ?? record.Title ?? '');
+    }
+    return String(value ?? '');
+  }
+
+  return result.data.map((raw) => ({
+    id: Number(raw.id ?? raw.ID ?? 0),
+    employeeId: lookupId(raw.employeeId ?? raw.EmployeeId ?? raw.Employee),
+    siteId: lookupId(raw.siteId ?? raw.SiteId ?? raw.Site),
+    issueDate: String(raw.issueDate ?? raw.IssueDate ?? ''),
+    issuedBy: lookupText(raw.issuedBy ?? raw.IssuedBy) || String(raw.issuedBy ?? raw.IssuedBy ?? ''),
+    status: (String(raw.status ?? raw.Status ?? 'Active') as PpeIssue['status']),
+    ppeItemsSummary: raw.ppeItemsSummary !== undefined || raw.PPEItemsSummary !== undefined ? String(raw.ppeItemsSummary ?? raw.PPEItemsSummary) : undefined,
+    pdfUrl: raw.pdfUrl !== undefined || raw.SignedFormLinkLong !== undefined ? String(raw.pdfUrl ?? raw.SignedFormLinkLong) || undefined : undefined,
+  }));
 }
 
 export async function getSpecialtyMatrixFlow(fallback: SpecialtyMatrixEntry[]): Promise<SpecialtyMatrixEntry[]> {

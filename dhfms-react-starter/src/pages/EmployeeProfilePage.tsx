@@ -36,6 +36,14 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
+function buildPpeFileNamePrefix(): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const yyyymmdd = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+  const hhmmss = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  return `${yyyymmdd}-${hhmmss}`;
+}
+
 export function EmployeeProfilePage({ employee, employees, sites, trainings, documents, ppeIssues, onPpeIssuesChanged, activeTab, onTabChange, onBack, onEdit }: Props) {
   if (!employee) return <EmptyState title="Δεν βρέθηκε εργαζόμενος" />;
   const employeeSite = sites.find(site => site.id === employee.siteId);
@@ -198,7 +206,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
       issueDate: new Date().toISOString().slice(0, 10),
       issuedBy: issuerName,
       siteName: employeeSite?.name ?? '-',
-      pdfFileName: `${employee.employeeNo}-ppe-${Date.now()}.pdf`,
+      pdfFileName: `${buildPpeFileNamePrefix()}-ppe-${employee.fullName}.pdf`,
       ppeItemsSummary,
       ppeItemsHtml,
       issuerSignatureBase64: ppeSignature,

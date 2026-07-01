@@ -10,6 +10,7 @@ import {
   generateTrainingPdf,
   getEmployeesFlow,
   getPpeCatalogFlow,
+  getPpeIssuesFlow,
   getProjectStaffFlow,
   getTrainingTopicsFlow,
   ocrDocumentPlaceholder,
@@ -18,7 +19,7 @@ import {
   type GeneratePpeIssuePdfInput,
 } from './flowClient';
 import { documents, trainings } from '../data/mockData';
-import type { Employee, PpeCatalogItem, ProjectStaffMember, TrainingTopic } from '../types/models';
+import type { Employee, PpeCatalogItem, PpeIssue, ProjectStaffMember, TrainingTopic } from '../types/models';
 import type { EvidenceDocument, TrainingSession } from '../types/models';
 import QRCode from 'qrcode';
 import { createWorker } from 'tesseract.js';
@@ -91,6 +92,9 @@ export class SharePointAdapter {
     }
     if (normalized.includes('ppecatalog')) {
       return getPpeCatalogFlow([] as PpeCatalogItem[]);
+    }
+    if (normalized.includes('ppeissuance')) {
+      return getPpeIssuesFlow([] as PpeIssue[]);
     }
     console.info(`[SharePointAdapter][MockFallback] No configured flow mapping for read list '${listName}'.`);
     return [];
