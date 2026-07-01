@@ -62,6 +62,92 @@ function normalizeOcrLabel(value: string): string {
     .toUpperCase();
 }
 
+const greeklishToGreek: Record<string, string> = {
+  A: 'Α',
+  B: 'Β',
+  E: 'Ε',
+  G: 'Γ',
+  I: 'Ι',
+  K: 'Κ',
+  L: 'Λ',
+  M: 'Μ',
+  N: 'Ν',
+  O: 'Ο',
+  P: 'Π',
+  R: 'Ρ',
+  S: 'Σ',
+  T: 'Τ',
+  Y: 'Υ',
+  Z: 'Ζ',
+};
+
+function mrzNameToGreek(value: string): string {
+  return value
+    .split('')
+    .map(character => greeklishToGreek[character] ?? character)
+    .join('');
+}
+
+function parseMrzDate(value: string): string {
+  const year = Number(value.slice(0, 2));
+  const month = value.slice(2, 4);
+  const day = value.slice(4, 6);
+  const century = year > 30 ? '19' : '20';
+  return `${century}${year.toString().padStart(2, '0')}-${month}-${day}`;
+}
+
+function parseGreekIdentityMrz(text: string) {
+  const normalizedLines = text
+    .split(/\r?\n/)
+    .map(line => line.trim().replace(/\s+/g, '').toUpperCase())
+    .filter(Boolean);
+
+  const idLine = normalizedLines.find(line => line.startsWith('IDGRC') || line.startsWith('I<GRC'));
+  const dateLine = normalizedLines.find(line => /^\d{6}/.test(line) && line.includes('GRC'));
+  const nameLine = [...normalizedLines].reverse().find(line => line.includes('<<') && /[A-Z]{3,}/.test(line));
+
+  const identityDocumentNo = idLine?.match(/(?:IDGRC|I<GRC)([A-Z0-9<]{8,12})/)?.[1]?.replace(/</g, '').slice(0, 9) ?? '';
+  const birthDate = dateLine?.match(/^(\d{6})/)?.[1];
+  const gender = dateLine?.match(/^\d{6}\d?([MFXΑΘ])/i)?.[1];
+  const nameParts = nameLine
+    ?.replace(/<+$/g, '')
+    .split('<<')
+    .filter(Boolean) ?? [];
+
+  return {
+    identityDocumentNo,
+    birthDate: birthDate ? parseMrzDate(birthDate) : '',
+    gender: gender === 'M' || gender === 'Α' ? 'Άρρεν' : gender === 'F' || gender === 'Θ' ? 'Θήλυ' : '',
+    nationality: dateLine?.includes('GRC') ? 'Ελληνική' : '',
+    lastName: nameParts[0] ? mrzNameToGreek(nameParts[0]) : '',
+    firstName: nameParts[1] ? mrzNameToGreek(nameParts[1]) : '',
+  };
+}
+
+function extractTextNearLabel(lines: string[], labels: string[]) {
+  for (const label of labels) {
+    const normalizedLabel = normalizeOcrLabel(label);
+    for (let index = 0; index < lines.length; index += 1) {
+      const normalizedLine = normalizeOcrLabel(lines[index]);
+      if (!normalizedLine.includes(normalizedLabel)) continue;
+
+      const sameLine = normalizeValue(lines[index].replace(new RegExp(escapeRegex(label), 'i'), '').replace(/^[:\-\s/]+/, ''));
+      if (sameLine && !normalizeOcrLabel(sameLine).includes(normalizedLabel)) {
+        return sameLine;
+      }
+
+      for (let offset = 1; offset <= 2; offset += 1) {
+        const nextLine = normalizeValue(lines[index + offset]);
+        if (nextLine && !labels.some(candidate => normalizeOcrLabel(nextLine).includes(normalizeOcrLabel(candidate)))) {
+          return nextLine;
+        }
+      }
+    }
+  }
+
+  return '';
+}
+
 export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positionOptions, companyOptions }: Props) {
   const [form, setForm] = useState<EmployeeFormState>({
     employeeNo: 'AUTO',
@@ -148,17 +234,20 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
       return '';
     };
 
-    const lastName = extract('Επώνυμο', 'Surname', 'Lastname', 'Last name');
-    const firstName = extract('Όνομα', 'Given names', 'First name', 'Firstname', 'Name');
-    const fatherName = extract('Πατρώνυμο', 'FatherName', 'Father name', 'Father');
-    const birthDate = parseDateToIso(extract('Ημερομηνία γέννησης', 'Birth date', 'Date of birth', 'DOB')) ?? '';
+    const mrz = parseGreekIdentityMrz(text);
+    const lastName = extract('Επώνυμο', 'Surname', 'Lastname', 'Last name') || mrz.lastName;
+    const firstName = extract('Όνομα', 'Given names', 'First name', 'Firstname', 'Name') || mrz.firstName;
+    const fatherName = extract('Πατρώνυμο', 'FatherName', 'Father name', 'Father')
+      || extractTextNearLabel(lines, ['Όνομα πατέρα', 'Father name']);
+    const birthDate = parseDateToIso(extract('Ημερομηνία γέννησης', 'Birth date', 'Date of birth', 'DOB')) ?? mrz.birthDate;
     const expiryDate = parseDateToIso(extract('Ημερομηνία λήξης', 'Λήξη', 'Expiry date', 'Date of expiry', 'Valid until')) ?? '';
     const explicitId = extract('ΑΔΤ / Αρ. Διαβατηρίου', 'Αριθμός ταυτότητας', 'ΑΔΤ', 'Passport No', 'Passport', 'Document No', 'ID number', 'ID');
     const identityMatch = normalizedText.match(/\b[A-ZΑ-Ω]{1,3}\s?\d{5,9}\b/u);
-    const idOrTaxNo = normalizeIdentityNumber(explicitId || identityMatch?.[0]);
-    const gender = extract('Φύλο', 'Gender', 'Sex');
-    const nationality = extract('Ιθαγένεια', 'Nationality');
-    const issuingAuthority = extract('Αρχή έκδοσης', 'Issued by', 'Issuing authority', 'Authority');
+    const idOrTaxNo = normalizeIdentityNumber(explicitId || identityMatch?.[0] || mrz.identityDocumentNo);
+    const gender = extract('Φύλο', 'Gender', 'Sex') || mrz.gender;
+    const nationality = extract('Ιθαγένεια', 'Nationality') || mrz.nationality;
+    const issuingAuthority = extract('Αρχή έκδοσης', 'Issued by', 'Issuing authority', 'Authority')
+      || extractTextNearLabel(lines, ['Αρχή έκδοσης', 'Issuing authority', 'Issued by']);
 
     const extractedFields = [
       lastName ? `Επώνυμο: ${lastName}` : null,
