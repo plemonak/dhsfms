@@ -1,5 +1,5 @@
 import { integrationConfig, isFlowConfigured } from './integrationConfig';
-import type { Employee, EvidenceDocument, PpeCatalogItem, ProjectStaffMember, Site, TrainingTopic, Vehicle } from '../types/models';
+import type { Employee, EvidenceDocument, PpeCatalogItem, ProjectStaffMember, SpecialtyMatrixEntry, Site, TrainingTopic, Vehicle } from '../types/models';
 
 export interface GenerateTrainingPdfInput {
   trainingSessionId: number;
@@ -17,6 +17,9 @@ export interface GeneratePpeIssuePdfInput {
   issuedBy: string;
   siteName?: string;
   pdfFileName: string;
+  ppeItemsSummary?: string;
+  issuerSignatureBase64?: string;
+  employeeSignatureBase64?: string;
 }
 
 export interface GenerateTrainingAttendancePdfInput {
@@ -649,6 +652,34 @@ export async function createPpeIssueFlow(payload: Record<string, unknown>): Prom
   );
   const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
   return { id: responseId, status: result.status };
+}
+
+// Δεν κάνουμε hard delete των χορηγήσεων ΜΑΠ (χρειάζεται audit trail για επιθεωρήσεις ασφαλείας) —
+// σημειώνουμε τη χορήγηση ως 'Cancelled' στο SharePoint.
+export async function cancelPpeIssueFlow(ppeIssueId: number): Promise<{ status: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'cancelPpeIssue',
+    integrationConfig.powerAutomateFlows.cancelPpeIssue,
+    { ppeIssueId, flowType: 'cancel-ppe-issue' },
+    { id: ppeIssueId, status: 'mock-fallback' }
+  );
+  return { status: result.status };
+}
+
+export async function getSpecialtyMatrixFlow(fallback: SpecialtyMatrixEntry[]): Promise<SpecialtyMatrixEntry[]> {
+  const result = await invokeFlowData<Array<Record<string, unknown>>>(
+    'getSpecialtyMatrix',
+    integrationConfig.powerAutomateFlows.getSpecialtyMatrix,
+    { flowType: 'get-specialty-matrix' },
+    fallback as unknown as Array<Record<string, unknown>>
+  );
+
+  return result.data.map((raw) => ({
+    specialty: String(raw.specialty ?? raw.Specialty ?? ''),
+    ppeCategory: String(raw.ppeCategory ?? raw.PPECategory ?? ''),
+    standard: raw.standard !== undefined || raw.Standard !== undefined ? String(raw.standard ?? raw.Standard) : undefined,
+    isMandatory: String(raw.isMandatory ?? raw.IsMandatory ?? '').trim().toLowerCase() === 'yes',
+  }));
 }
 
 export async function generateTrainingPdf(input: GenerateTrainingPdfInput): Promise<{ pdfUrl: string; status?: string }> {

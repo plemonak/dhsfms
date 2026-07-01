@@ -1,5 +1,5 @@
 import { ArrowLeft, FilePlus2, PenSquare } from 'lucide-react';
-import type { EquipmentItem, PpeCatalogItem, TrainingTopic } from '../types/models';
+import type { EquipmentItem, PpeCatalogItem, SpecialtyMatrixEntry, TrainingTopic } from '../types/models';
 import { useEffect, useState } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
@@ -18,13 +18,16 @@ interface Props {
   trainings: TrainingSession[];
   documents: EvidenceDocument[];
   ppeIssues: PpeIssue[];
+  onPpeIssuesChanged: () => void;
   activeTab: 'ppe' | 'training' | 'medical' | 'licenses';
   onTabChange: (tab: Props['activeTab']) => void;
   onBack: () => void;
   onEdit: () => void;
 }
 
-export function EmployeeProfilePage({ employee, employees, trainings, documents, ppeIssues, activeTab, onTabChange, onBack, onEdit }: Props) {
+const EVERYONE_SPECIALTY = 'όλοι';
+
+export function EmployeeProfilePage({ employee, employees, trainings, documents, ppeIssues, onPpeIssuesChanged, activeTab, onTabChange, onBack, onEdit }: Props) {
   if (!employee) return <EmptyState title="Δεν βρέθηκε εργαζόμενος" />;
   const employeeTrainings = trainings.filter(t => t.participantIds.includes(employee.id));
   const medicalDocs = documents.filter(d => d.documentType.toLowerCase().includes('ιατρ') || d.documentType.toLowerCase().includes('fit'));
@@ -53,6 +56,10 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
   const [ppeWorkflowOpen, setPpeWorkflowOpen] = useState(false);
   const [selectedPpeItems, setSelectedPpeItems] = useState<number[]>([]);
   const [ppePdfUrl, setPpePdfUrl] = useState<string | null>(null);
+  const [ppeEmployeeSignature, setPpeEmployeeSignature] = useState<string | null>(null);
+  const [specialtyMatrix, setSpecialtyMatrix] = useState<SpecialtyMatrixEntry[]>([]);
+  const [selectedPpeIssueIds, setSelectedPpeIssueIds] = useState<number[]>([]);
+  const [cancellingPpeIssues, setCancellingPpeIssues] = useState(false);
   const [equipmentWorkflowOpen, setEquipmentWorkflowOpen] = useState(false);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<number | null>(null);
   const [equipmentIssueDate, setEquipmentIssueDate] = useState(new Date().toISOString().slice(0, 10));
@@ -75,7 +82,29 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
     void dataProvider.getTrainingTopics().then(setTrainingTopics);
     void dataProvider.getPpeCatalog().then(setPpeCatalog);
     void dataProvider.getEquipmentCatalog(employee.siteId).then(setEquipmentCatalog);
+    void dataProvider.getSpecialtyMatrix().then(setSpecialtyMatrix);
   }, [employee.id, employee.siteId]);
+
+  // Ειδικότητες του εργαζομένου (το Position μπορεί να έχει πάνω από μία, χωρισμένες με " / "),
+  // συν το "όλοι" που ισχύει για κάθε εργαζόμενο στο εργοτάξιο.
+  const employeeSpecialties = [
+    ...employee.position.split(' / ').map(part => part.trim()).filter(Boolean),
+    EVERYONE_SPECIALTY,
+  ];
+  const mandatoryPpeCategories = new Set(
+    specialtyMatrix
+      .filter(entry => entry.isMandatory && employeeSpecialties.some(specialty => specialty.toLowerCase() === entry.specialty.trim().toLowerCase()))
+      .map(entry => entry.ppeCategory.trim().toLowerCase())
+  );
+  const mandatoryPpeCatalog = ppeCatalog.filter(item => mandatoryPpeCategories.has(item.ppeType.trim().toLowerCase()));
+  const optionalPpeCatalog = ppeCatalog.filter(item => !mandatoryPpeCategories.has(item.ppeType.trim().toLowerCase()));
+
+  useEffect(() => {
+    if (ppeWorkflowOpen) {
+      setSelectedPpeItems(mandatoryPpeCatalog.map(item => item.id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ppeWorkflowOpen, specialtyMatrix, ppeCatalog]);
 
   const selectedHistoryItem = employeeTrainings.find(item => item.id === selectedHistoryId) ?? employeeTrainings[0];
 
@@ -127,8 +156,17 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
 
   async function savePpeWorkflow() {
     if (!employee) return;
-    if (!selectedPpeItems.length || !ppeSignature) return;
+    if (!selectedPpeItems.length || !ppeSignature || !ppeEmployeeSignature) return;
     const selectedItems = ppeCatalog.filter(item => selectedPpeItems.includes(item.id));
+    const ppeItemsSummary = selectedItems.map(item => `${item.ppeType} (${item.model}, ${item.size})`).join(', ');
+
+    const createdIssue = await dataProvider.createPpeIssue({
+      employeeId: employee.id,
+      siteId: employee.siteId,
+      issuedBy: trainerName,
+      ppeItemsSummary,
+    });
+
     const result = await dataProvider.generatePpeIssuePdf({
       employeeId: employee.id,
       employeeName: employee.fullName,
@@ -136,10 +174,35 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
       issuedBy: trainerName,
       siteName: 'Εργοτάξιο demo',
       pdfFileName: `${employee.employeeNo}-ppe.pdf`,
+      ppeItemsSummary,
+      issuerSignatureBase64: ppeSignature,
+      employeeSignatureBase64: ppeEmployeeSignature,
     });
+    if (result.pdfUrl && result.pdfUrl !== '#') {
+      await dataProvider.attachPpeIssuePdf(createdIssue.id, result.pdfUrl);
+    }
     setPpePdfUrl(result.pdfUrl);
     setPpeWorkflowOpen(false);
-    console.info('PPE issue saved for catalog items', selectedItems.map(item => item.ppeType));
+    setSelectedPpeItems([]);
+    setPpeSignature(null);
+    setPpeEmployeeSignature(null);
+    onPpeIssuesChanged();
+  }
+
+  async function cancelSelectedPpeIssues() {
+    if (!selectedPpeIssueIds.length) return;
+    setCancellingPpeIssues(true);
+    try {
+      await Promise.all(selectedPpeIssueIds.map(id => dataProvider.cancelPpeIssue(id)));
+      setSelectedPpeIssueIds([]);
+      onPpeIssuesChanged();
+    } finally {
+      setCancellingPpeIssues(false);
+    }
+  }
+
+  function togglePpeIssueSelection(id: number) {
+    setSelectedPpeIssueIds(current => current.includes(id) ? current.filter(entry => entry !== id) : [...current, id]);
   }
 
   async function saveEquipmentAssignment() {
@@ -201,8 +264,19 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
               <button className="primary-btn" type="button" style={{ marginLeft: 8 }} onClick={() => setEquipmentWorkflowOpen(prev => !prev)}><FilePlus2 size={17} />+ Νέα Χρέωση Εξοπλισμού</button>
               {ppeWorkflowOpen && (
                 <div className="card card-pad" style={{ marginTop: 12 }}>
-                  <div className="section-title">Επιλογή ΜΑΠ</div>
-                  {ppeCatalog.map(item => (
+                  <div className="section-title">Υποχρεωτικά ΜΑΠ (βάσει ειδικότητας)</div>
+                  {mandatoryPpeCatalog.length === 0 && <div className="row-subtitle">Δεν βρέθηκαν υποχρεωτικά ΜΑΠ για την ειδικότητα «{employee.position}».</div>}
+                  {mandatoryPpeCatalog.map(item => (
+                    <div key={item.id} className="card card-pad" style={{ marginTop: 8 }}>
+                      <label className="training-chip" style={{ display: 'flex', alignItems: 'center' }}>
+                        <input type="checkbox" checked={selectedPpeItems.includes(item.id)} onChange={() => togglePpeItem(item.id)} />
+                        <span>{item.ppeType} · {item.model} · {item.size}</span>
+                      </label>
+                      <div className="row-subtitle" style={{ marginTop: 6 }}>EN: {item.enCertification} · Qty: {item.quantity} · Notes: {item.notes}</div>
+                    </div>
+                  ))}
+                  <div className="section-title" style={{ marginTop: 16 }}>Προαιρετικά ΜΑΠ</div>
+                  {optionalPpeCatalog.map(item => (
                     <div key={item.id} className="card card-pad" style={{ marginTop: 8 }}>
                       <label className="training-chip" style={{ display: 'flex', alignItems: 'center' }}>
                         <input type="checkbox" checked={selectedPpeItems.includes(item.id)} onChange={() => togglePpeItem(item.id)} />
@@ -212,10 +286,13 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
                     </div>
                   ))}
                   <div style={{ marginTop: 12 }}>
-                    <SignaturePad signer={employee.fullName} title="Υπογραφή εκδότη" subtitle="Υπογραφή για τη χορήγηση ΜΑΠ" documentId={`ppe-issuer-${employee.id}`} onSignatureCaptured={({ signatureData }) => setPpeSignature(signatureData)} />
+                    <SignaturePad signer={trainerName} title="Υπογραφή εκδότη" subtitle="Υπογραφή για τη χορήγηση ΜΑΠ" documentId={`ppe-issuer-${employee.id}`} onSignatureCaptured={({ signatureData }) => setPpeSignature(signatureData)} />
                   </div>
-                  <button className="primary-btn" type="button" style={{ marginTop: 12 }} onClick={() => void savePpeWorkflow()} disabled={!selectedPpeItems.length || !ppeSignature}>Αποθήκευση και PDF</button>
-                  {ppePdfUrl && <div className="row-subtitle" style={{ marginTop: 8 }}>Το signed PPE PDF είναι έτοιμο: {ppePdfUrl}</div>}
+                  <div style={{ marginTop: 12 }}>
+                    <SignaturePad signer={employee.fullName} title="Υπογραφή εργαζομένου" subtitle="Υπογραφή για τη χορήγηση ΜΑΠ" documentId={`ppe-employee-${employee.id}`} onSignatureCaptured={({ signatureData }) => setPpeEmployeeSignature(signatureData)} />
+                  </div>
+                  <button className="primary-btn" type="button" style={{ marginTop: 12 }} onClick={() => void savePpeWorkflow()} disabled={!selectedPpeItems.length || !ppeSignature || !ppeEmployeeSignature}>Αποθήκευση και PDF</button>
+                  {ppePdfUrl && <div className="row-subtitle" style={{ marginTop: 8 }}><a href={ppePdfUrl} target="_blank" rel="noreferrer">Το signed PPE PDF είναι έτοιμο — άνοιγμα</a></div>}
                 </div>
               )}
               {equipmentWorkflowOpen && (
@@ -243,7 +320,32 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
                 </div>
               )}
               <div style={{ marginTop: 12 }}>
-                {ppeIssues.map(issue => <div className="row" key={issue.id}><div className="row-main"><div className="row-title">Χορήγηση ΜΑΠ #{issue.id}</div><div className="row-subtitle">{issue.issueDate} · Εκδόθηκε από {issue.issuedBy}</div></div><StatusBadge status={issue.status} /></div>)}
+                <div className="section-title">Χορηγήσεις ΜΑΠ</div>
+                {ppeIssues.map(issue => (
+                  <div className="row" key={issue.id}>
+                    {issue.status !== 'Cancelled' && (
+                      <input
+                        type="checkbox"
+                        checked={selectedPpeIssueIds.includes(issue.id)}
+                        onChange={() => togglePpeIssueSelection(issue.id)}
+                      />
+                    )}
+                    <div className="row-main">
+                      <div className="row-title">Χορήγηση ΜΑΠ #{issue.id}</div>
+                      <div className="row-subtitle">
+                        {issue.issueDate} · Εκδόθηκε από {issue.issuedBy}
+                        {issue.ppeItemsSummary ? ` · ${issue.ppeItemsSummary}` : ''}
+                        {issue.pdfUrl && <> · <a href={issue.pdfUrl} target="_blank" rel="noreferrer">PDF</a></>}
+                      </div>
+                    </div>
+                    <StatusBadge status={issue.status} />
+                  </div>
+                ))}
+                {selectedPpeIssueIds.length > 0 && (
+                  <button className="danger-btn" type="button" style={{ marginTop: 8 }} onClick={() => void cancelSelectedPpeIssues()} disabled={cancellingPpeIssues}>
+                    {cancellingPpeIssues ? 'Ακύρωση...' : `Ακύρωση επιλεγμένων (${selectedPpeIssueIds.length})`}
+                  </button>
+                )}
               </div>
             </>
           )}

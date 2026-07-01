@@ -1,17 +1,20 @@
-import type { Employee, EquipmentItem, EvidenceDocument, Inspection, InspectionPhoto, PpeCatalogItem, PpeIssue, ProjectStaffMember, Site, TrainingSession, TrainingTopic, Vehicle } from '../types/models';
+import type { Employee, EquipmentItem, EvidenceDocument, Inspection, InspectionPhoto, PpeCatalogItem, PpeIssue, ProjectStaffMember, SpecialtyMatrixEntry, Site, TrainingSession, TrainingTopic, Vehicle } from '../types/models';
 import { documents, employees, equipmentCatalog, ppeCatalog, ppeIssues, projectStaff, sites, trainingTopics, trainings, vehicles } from '../data/mockData';
 import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
 import { integrationConfig } from './integrationConfig';
 import {
+  cancelPpeIssueFlow,
   createEmployeeFlow,
   createInspectionFlow,
   createInspectionPhotoFlow,
+  createPpeIssueFlow,
   createTrainingFlow,
   getEmployeeDocumentsFlow,
   getEmployeesFlow,
   getInspectionsFlow,
   getPpeCatalogFlow,
   getProjectStaffFlow,
+  getSpecialtyMatrixFlow,
   getTrainingTopicsFlow,
   getVehicleDocumentsFlow,
   getVehiclesFlow,
@@ -35,13 +38,17 @@ export interface IDataProvider {
   getTrainings(siteId?: number): Promise<TrainingSession[]>;
   getDocuments(entityType?: EvidenceDocument['entityType'], entityId?: number): Promise<EvidenceDocument[]>;
   getPpeIssues(employeeId?: number): Promise<PpeIssue[]>;
+  getSpecialtyMatrix(): Promise<SpecialtyMatrixEntry[]>;
+  createPpeIssue(input: { employeeId: number; siteId: number; issuedBy: string; ppeItemsSummary: string }): Promise<PpeIssue>;
+  attachPpeIssuePdf(ppeIssueId: number, pdfUrl: string): Promise<void>;
+  cancelPpeIssue(ppeIssueId: number): Promise<void>;
   getInspections(siteId?: number): Promise<Inspection[]>;
   createInspection(inspection: Omit<Inspection, 'id'>): Promise<Inspection>;
   uploadInspectionPhoto(file: File, folderPath: string): Promise<{ url: string; fileName: string; status?: string }>;
   addInspectionPhoto(photo: Omit<InspectionPhoto, 'id'>): Promise<InspectionPhoto>;
   createTrainingRecord(payload: Record<string, unknown>): Promise<{ id?: number; status: string }>;
   triggerTrainingPdf(input: { trainingSessionId: number; trainingTitle: string; trainerName: string; trainerSignature: string; participantsJson: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
-  generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
+  generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string; ppeItemsSummary?: string; issuerSignatureBase64?: string; employeeSignatureBase64?: string }): Promise<{ pdfUrl: string }>;
   generateEquipmentAssignmentPdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
   uploadEvidence(file: File, folderPath: string): Promise<{ url: string; status?: string; fileName: string }>;
   uploadEmployeeDocument(file: File, input: { employeeId: number; employeeName: string; documentType: string; issueDate?: string; expiryDate?: string; issuingAuthority?: string; mandatory?: boolean; aiWarnings?: string; notes?: string }): Promise<{ url: string; status?: string; fileName: string }>;
@@ -56,6 +63,7 @@ export class MockDataProvider implements IDataProvider {
   private trainingStore = [...trainings];
   private inspectionStore: Inspection[] = [];
   private inspectionPhotoStore: InspectionPhoto[] = [];
+  private ppeIssueStore = [...ppeIssues];
   private sharePointAdapter = new SharePointAdapter();
   private flowAdapter = new FlowAdapter();
   private ocrAdapter = new OcrAdapter();
@@ -309,8 +317,42 @@ export class MockDataProvider implements IDataProvider {
   }
 
   async getPpeIssues(employeeId?: number): Promise<PpeIssue[]> {
-    const ppeIssuesFromSharePoint = await this.readSharePointList<PpeIssue>(integrationConfig.sharePointLists.ppe, ppeIssues);
-    return employeeId ? ppeIssuesFromSharePoint.filter(p => p.employeeId === employeeId) : ppeIssuesFromSharePoint;
+    const ppeIssuesFromSharePoint = await this.readSharePointList<PpeIssue>(integrationConfig.sharePointLists.ppe, this.ppeIssueStore);
+    this.ppeIssueStore = ppeIssuesFromSharePoint.length > 0 ? ppeIssuesFromSharePoint : this.ppeIssueStore;
+    return employeeId ? this.ppeIssueStore.filter(p => p.employeeId === employeeId) : this.ppeIssueStore;
+  }
+
+  async getSpecialtyMatrix(): Promise<SpecialtyMatrixEntry[]> {
+    return getSpecialtyMatrixFlow([]);
+  }
+
+  async createPpeIssue(input: { employeeId: number; siteId: number; issuedBy: string; ppeItemsSummary: string }): Promise<PpeIssue> {
+    const created: PpeIssue = {
+      id: Date.now(),
+      employeeId: input.employeeId,
+      siteId: input.siteId,
+      issueDate: new Date().toISOString().slice(0, 10),
+      issuedBy: input.issuedBy,
+      status: 'Active',
+      ppeItemsSummary: input.ppeItemsSummary,
+    };
+
+    const createdRemote = await createPpeIssueFlow({ ...created, flowType: 'create-ppe-issue' });
+    if (createdRemote.status !== 'mock-fallback' && createdRemote.id) {
+      created.id = createdRemote.id;
+    }
+
+    this.ppeIssueStore = [created, ...this.ppeIssueStore];
+    return created;
+  }
+
+  async attachPpeIssuePdf(ppeIssueId: number, pdfUrl: string): Promise<void> {
+    this.ppeIssueStore = this.ppeIssueStore.map(issue => issue.id === ppeIssueId ? { ...issue, pdfUrl } : issue);
+  }
+
+  async cancelPpeIssue(ppeIssueId: number): Promise<void> {
+    await cancelPpeIssueFlow(ppeIssueId);
+    this.ppeIssueStore = this.ppeIssueStore.map(issue => issue.id === ppeIssueId ? { ...issue, status: 'Cancelled' } : issue);
   }
 
   async getInspections(siteId?: number): Promise<Inspection[]> {
@@ -396,7 +438,7 @@ export class MockDataProvider implements IDataProvider {
     return this.flowAdapter.triggerTrainingPdf(input);
   }
 
-  async generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }) {
+  async generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string; ppeItemsSummary?: string; issuerSignatureBase64?: string; employeeSignatureBase64?: string }) {
     return this.flowAdapter.generatePpeIssuePdf(input);
   }
 

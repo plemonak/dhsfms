@@ -15,6 +15,7 @@ import {
   ocrDocumentPlaceholder,
   uploadEmployeeDocument,
   uploadEvidence,
+  type GeneratePpeIssuePdfInput,
 } from './flowClient';
 import { documents, trainings } from '../data/mockData';
 import type { Employee, PpeCatalogItem, ProjectStaffMember, TrainingTopic } from '../types/models';
@@ -104,7 +105,7 @@ export class FlowAdapter {
     return generateTrainingPdf({ ...input, trainerSignature: input.trainerSignature || 'placeholder' });
   }
 
-  async generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }) {
+  async generatePpeIssuePdf(input: GeneratePpeIssuePdfInput) {
     return generatePpeIssuePdf(input);
   }
 

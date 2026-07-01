@@ -1,5 +1,5 @@
 export type Role = 'System Admin' | 'HSE Manager' | 'Site Manager' | 'Foreman' | 'Viewer';
-export type Status = 'Active' | 'Inactive' | 'Pending' | 'Expired' | 'Missing' | 'Completed' | 'Draft';
+export type Status = 'Active' | 'Inactive' | 'Pending' | 'Expired' | 'Missing' | 'Completed' | 'Draft' | 'Cancelled';
 
 export interface Site {
   id: number;
@@ -100,6 +100,8 @@ export interface PpeIssue {
   issueDate: string;
   issuedBy: string;
   status: Status;
+  ppeItemsSummary?: string;
+  pdfUrl?: string;
 }
 
 export interface PpeCatalogItem {
@@ -113,6 +115,13 @@ export interface PpeCatalogItem {
   expiryDate?: string;
   quantity: number;
   notes?: string;
+}
+
+export interface SpecialtyMatrixEntry {
+  specialty: string;
+  ppeCategory: string;
+  standard?: string;
+  isMandatory: boolean;
 }
 
 export interface EquipmentItem {

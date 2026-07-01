@@ -8,6 +8,7 @@ const labels: Record<Status, string> = {
   Missing: 'Ελλιπές',
   Completed: 'Ολοκληρωμένο',
   Draft: 'Πρόχειρο',
+  Cancelled: 'Ακυρώθηκε',
 };
 
 export function StatusBadge({ status }: { status: Status }) {
