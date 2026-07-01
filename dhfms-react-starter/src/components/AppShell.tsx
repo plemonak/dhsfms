@@ -20,6 +20,11 @@ const navItems: { key: PageKey; label: string; icon: React.ReactNode }[] = [
 ];
 
 export function AppShell({ user, currentPage, onNavigate, children }: AppShellProps) {
+  const builtAt = new Date(__APP_BUILT_AT__);
+  const buildLabel = Number.isNaN(builtAt.getTime())
+    ? __APP_COMMIT__
+    : `${__APP_COMMIT__} · ${builtAt.toLocaleString('el-GR', { dateStyle: 'short', timeStyle: 'short' })}`;
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -30,9 +35,14 @@ export function AppShell({ user, currentPage, onNavigate, children }: AppShellPr
             <div className="brand-subtitle">Σύστημα Διαχείρισης ΥΑΕ & Στόλου</div>
           </div>
         </div>
-        <div className="user-pill">
-          <span>{user.role}</span>
-          <div className="user-avatar" title={user.displayName}>{user.initials}</div>
+        <div className="header-status">
+          <div className="build-pill" title={`Branch: ${__APP_BRANCH__} · Build: ${__APP_BUILT_AT__}`}>
+            {__APP_BRANCH__} · {buildLabel}
+          </div>
+          <div className="user-pill">
+            <span>{user.role}</span>
+            <div className="user-avatar" title={user.displayName}>{user.initials}</div>
+          </div>
         </div>
       </header>
 
