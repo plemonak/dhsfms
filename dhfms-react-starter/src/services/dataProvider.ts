@@ -318,8 +318,16 @@ export class MockDataProvider implements IDataProvider {
 
   async getPpeIssues(employeeId?: number): Promise<PpeIssue[]> {
     const ppeIssuesFromSharePoint = await this.readSharePointList<PpeIssue>(integrationConfig.sharePointLists.ppe, this.ppeIssueStore);
-    this.ppeIssueStore = ppeIssuesFromSharePoint.length > 0 ? ppeIssuesFromSharePoint : this.ppeIssueStore;
-    return employeeId ? this.ppeIssueStore.filter(p => p.employeeId === employeeId) : this.ppeIssueStore;
+    // Το SharePoint δεν έχει ακόμα το pdfUrl (δεν το γράφουμε πίσω εκεί) — κρατάμε το τοπικά γνωστό link
+    // ώστε να μη "χάνεται" αμέσως μετά τη δημιουργία του PDF.
+    const merged = ppeIssuesFromSharePoint.length > 0
+      ? ppeIssuesFromSharePoint.map(item => {
+          const known = this.ppeIssueStore.find(entry => entry.id === item.id);
+          return known?.pdfUrl && !item.pdfUrl ? { ...item, pdfUrl: known.pdfUrl } : item;
+        })
+      : this.ppeIssueStore;
+    this.ppeIssueStore = merged;
+    return employeeId ? merged.filter(p => p.employeeId === employeeId) : merged;
   }
 
   async getSpecialtyMatrix(): Promise<SpecialtyMatrixEntry[]> {

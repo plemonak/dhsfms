@@ -324,8 +324,12 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
                   <div style={{ marginTop: 12 }}>
                     <SignaturePad signer={employee.fullName} title="Υπογραφή εργαζομένου" subtitle="Υπογραφή για τη χορήγηση ΜΑΠ" documentId={`ppe-employee-${employee.id}`} onSignatureCaptured={({ signatureData }) => setPpeEmployeeSignature(signatureData)} />
                   </div>
-                  <button className="primary-btn" type="button" style={{ marginTop: 12 }} onClick={() => void savePpeWorkflow()} disabled={!selectedPpeItems.length || !ppeSignature || !ppeEmployeeSignature || !selectedIssuerId}>Αποθήκευση και PDF</button>
-                  {ppePdfUrl && <div className="row-subtitle" style={{ marginTop: 8 }}><a href={ppePdfUrl} target="_blank" rel="noreferrer">Το signed PPE PDF είναι έτοιμο — άνοιγμα</a></div>}
+                  <button className="primary-btn" type="button" style={{ marginTop: 12 }} onClick={() => void savePpeWorkflow()} disabled={!selectedPpeItems.length || !ppeSignature || !ppeEmployeeSignature || !selectedIssuerId}>Αποθήκευση</button>
+                </div>
+              )}
+              {ppePdfUrl && (
+                <div className="jsa-selection-summary" style={{ marginTop: 12 }}>
+                  Η χορήγηση ΜΑΠ αποθηκεύτηκε. <a href={ppePdfUrl} target="_blank" rel="noreferrer">Άνοιγμα PDF</a>
                 </div>
               )}
               {equipmentWorkflowOpen && (
