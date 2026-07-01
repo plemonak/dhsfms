@@ -681,9 +681,19 @@ export async function getSpecialtyMatrixFlow(fallback: SpecialtyMatrixEntry[]): 
     return text === 'yes' || text === 'true' || text === '1';
   }
 
+  // Specialty/PPECategory είναι Lookup πεδία στο SharePoint — έρχονται σαν αντικείμενο { Id, Value },
+  // όχι σαν απλό κείμενο.
+  function toDisplayText(value: unknown): string {
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      return String(record.Value ?? record.Title ?? '');
+    }
+    return String(value ?? '');
+  }
+
   return result.data.map((raw) => ({
-    specialty: String(raw.specialty ?? raw.Specialty ?? ''),
-    ppeCategory: String(raw.ppeCategory ?? raw.PPECategory ?? ''),
+    specialty: toDisplayText(raw.specialty ?? raw.Specialty),
+    ppeCategory: toDisplayText(raw.ppeCategory ?? raw.PPECategory),
     standard: raw.standard !== undefined || raw.Standard !== undefined ? String(raw.standard ?? raw.Standard) : undefined,
     isMandatory: toBoolean(raw.isMandatory ?? raw.IsMandatory),
   }));
