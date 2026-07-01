@@ -89,6 +89,7 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
   const [ocrFileName, setOcrFileName] = useState('');
   const [ocrPreviewUrl, setOcrPreviewUrl] = useState<string | null>(null);
   const [ocrStatus, setOcrStatus] = useState('');
+  const [ocrRawText, setOcrRawText] = useState('');
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrExtractedFields, setOcrExtractedFields] = useState<string[]>([]);
   const [identityFile, setIdentityFile] = useState<File | null>(null);
@@ -194,16 +195,18 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
 
     setOcrLoading(true);
     setOcrStatus('');
+    setOcrRawText('');
     setOcrExtractedFields([]);
     setIdentityConfirmed(false);
 
     try {
       const result = await dataProvider.extractDocumentText(file, { documentType: form.identityDocumentType ?? 'IdentityDocument' });
+      setOcrRawText(result.text);
       const extractedFields = applyOcrFields(result.text);
       setOcrStatus(result.text.trim().length === 0
         ? 'Το OCR ολοκληρώθηκε αλλά δεν επέστρεψε αναγνώσιμο κείμενο.'
         : extractedFields.length > 0
-          ? 'Το OCR ολοκληρώθηκε και τα πεδία συμπληρώθηκαν για έλεγχο.'
+          ? `Το OCR ολοκληρώθηκε και αναγνωρίστηκαν ${extractedFields.length} πεδία για έλεγχο.`
           : 'Το OCR επέστρεψε κείμενο, αλλά δεν αναγνωρίστηκαν πεδία αυτόματα. Συμπληρώστε τα χειροκίνητα.');
     } catch (error) {
       console.warn('OCR failed, using fallback.', error);
@@ -279,6 +282,14 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
                     {ocrExtractedFields.map(field => <li key={field}>{field}</li>)}
                   </ul>
                 </div>
+              )}
+              {ocrRawText && (
+                <details style={{ marginTop: 10 }}>
+                  <summary className="row-subtitle" style={{ cursor: 'pointer' }}>Προβολή κειμένου OCR</summary>
+                  <pre style={{ whiteSpace: 'pre-wrap', marginTop: 8, maxHeight: 220, overflow: 'auto', color: 'var(--dh-muted)', fontSize: 12 }}>
+                    {ocrRawText}
+                  </pre>
+                </details>
               )}
               {identityFile && (
                 <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12 }}>
