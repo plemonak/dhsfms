@@ -1,5 +1,5 @@
 import { ArrowLeft, FilePlus2, PenSquare } from 'lucide-react';
-import type { EquipmentItem, PpeCatalogItem, SpecialtyMatrixEntry, TrainingTopic } from '../types/models';
+import type { EquipmentItem, SpecialtyMatrixEntry, TrainingTopic } from '../types/models';
 import { useEffect, useState } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
@@ -64,7 +64,6 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [qrUrl, setQrUrl] = useState('');
   const [projectStaff, setProjectStaff] = useState<Array<{ id: number; displayName: string; responsibleName?: string; title?: string }>>([]);
   const [trainingTopics, setTrainingTopics] = useState<TrainingTopic[]>([]);
-  const [ppeCatalog, setPpeCatalog] = useState<PpeCatalogItem[]>([]);
   const [equipmentCatalog, setEquipmentCatalog] = useState<EquipmentItem[]>([]);
   const [selectedTrainerId, setSelectedTrainerId] = useState<number | null>(null);
   const [trainingMaterialUrl, setTrainingMaterialUrl] = useState('https://example.com/training-material.pdf');
@@ -72,7 +71,8 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [trainingPdfUrl, setTrainingPdfUrl] = useState<string | null>(null);
   const [traineeSignedIds, setTraineeSignedIds] = useState<number[]>([]);
   const [ppeWorkflowOpen, setPpeWorkflowOpen] = useState(false);
-  const [selectedPpeItems, setSelectedPpeItems] = useState<number[]>([]);
+  const [selectedPpeCategoryKeys, setSelectedPpeCategoryKeys] = useState<string[]>([]);
+  const [ppeItemDetails, setPpeItemDetails] = useState<Record<string, { model: string; size: string }>>({});
   const [ppePdfUrl, setPpePdfUrl] = useState<string | null>(null);
   const [ppeEmployeeSignature, setPpeEmployeeSignature] = useState<string | null>(null);
   const [selectedIssuerId, setSelectedIssuerId] = useState<number | null>(null);
@@ -99,7 +99,6 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     setTraineeSignedIds([employee.id]);
     void dataProvider.getProjectStaff(employee.siteId).then(setProjectStaff);
     void dataProvider.getTrainingTopics().then(setTrainingTopics);
-    void dataProvider.getPpeCatalog().then(setPpeCatalog);
     void dataProvider.getEquipmentCatalog(employee.siteId).then(setEquipmentCatalog);
     void dataProvider.getSpecialtyMatrix().then(setSpecialtyMatrix);
   }, [employee.id, employee.siteId]);
@@ -116,31 +115,59 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     ...employee.position.split(' / ').map(part => part.trim()).filter(Boolean),
     EVERYONE_SPECIALTY,
   ].map(normalizeText);
-  const mandatoryPpeCategories = new Set(
-    specialtyMatrix
-      .filter(entry => entry.isMandatory && employeeSpecialties.includes(normalizeText(entry.specialty)))
-      .map(entry => normalizeText(entry.ppeCategory))
-  );
-  const mandatoryPpeCatalog = ppeCatalog.filter(item => mandatoryPpeCategories.has(normalizeText(item.ppeType)));
-  const optionalPpeCatalog = ppeCatalog.filter(item => !mandatoryPpeCategories.has(normalizeText(item.ppeType)));
+
+  // Οι κατηγορίες ΜΑΠ έρχονται απευθείας από το SpecialtyMatrix (όχι από ξεχωριστό κατάλογο) —
+  // το EN πρότυπο εξαρτάται από ειδικότητα, οπότε προτιμάμε την πιο συγκεκριμένη αντιστοίχιση
+  // (π.χ. "Χειριστής" αντί για το γενικό "Όλοι") όταν υπάρχουν και οι δύο.
+  const ppeCategoryOptions = (() => {
+    const everyoneKey = normalizeText(EVERYONE_SPECIALTY);
+    const byKey = new Map<string, { key: string; category: string; standard?: string; mandatory: boolean; specificity: number }>();
+    for (const entry of specialtyMatrix) {
+      const specialtyKey = normalizeText(entry.specialty);
+      if (!employeeSpecialties.includes(specialtyKey)) continue;
+      const key = normalizeText(entry.ppeCategory);
+      const specificity = specialtyKey === everyoneKey ? 0 : 1;
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, { key, category: entry.ppeCategory, standard: entry.standard, mandatory: entry.isMandatory, specificity });
+      } else {
+        existing.mandatory = existing.mandatory || entry.isMandatory;
+        if (specificity > existing.specificity) {
+          existing.category = entry.ppeCategory;
+          existing.standard = entry.standard;
+          existing.specificity = specificity;
+        }
+      }
+    }
+    return Array.from(byKey.values());
+  })();
+  const mandatoryPpeOptions = ppeCategoryOptions.filter(o => o.mandatory);
+  const optionalPpeOptions = ppeCategoryOptions.filter(o => !o.mandatory);
   const selectedIssuer = projectStaff.find(person => person.id === selectedIssuerId);
   const selectedIssuerName = selectedIssuer?.displayName ?? selectedIssuer?.title ?? '';
 
   useEffect(() => {
     if (ppeWorkflowOpen) {
-      setSelectedPpeItems(mandatoryPpeCatalog.map(item => item.id));
+      setSelectedPpeCategoryKeys(mandatoryPpeOptions.map(o => o.key));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ppeWorkflowOpen, specialtyMatrix, ppeCatalog]);
+  }, [ppeWorkflowOpen, specialtyMatrix]);
+
+  function togglePpeCategory(key: string) {
+    setSelectedPpeCategoryKeys(current => current.includes(key) ? current.filter(entry => entry !== key) : [...current, key]);
+  }
+
+  function updatePpeItemDetail(key: string, field: 'model' | 'size', value: string) {
+    setPpeItemDetails(current => ({
+      ...current,
+      [key]: { model: current[key]?.model ?? '', size: current[key]?.size ?? '', [field]: value },
+    }));
+  }
 
   const selectedHistoryItem = employeeTrainings.find(item => item.id === selectedHistoryId) ?? employeeTrainings[0];
 
   function toggleTrainee(id: number) {
     setSelectedTraineeIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
-  }
-
-  function togglePpeItem(itemId: number) {
-    setSelectedPpeItems(current => current.includes(itemId) ? current.filter(entry => entry !== itemId) : [...current, itemId]);
   }
 
   function toggleTraineeSignature(id: number) {
@@ -183,13 +210,22 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
 
   async function savePpeWorkflow() {
     if (!employee) return;
-    if (!selectedPpeItems.length || !ppeSignature || !ppeEmployeeSignature || !selectedIssuerId) return;
+    if (!selectedPpeCategoryKeys.length || !ppeSignature || !ppeEmployeeSignature || !selectedIssuerId) return;
     const issuer = projectStaff.find(person => person.id === selectedIssuerId);
     const issuerName = issuer?.displayName ?? issuer?.title ?? `Στέλεχος #${selectedIssuerId}`;
-    const selectedItems = ppeCatalog.filter(item => selectedPpeItems.includes(item.id));
-    const ppeItemsSummary = selectedItems.map(item => `${item.ppeType} (${item.model}, ${item.size})`).join(', ');
-    const ppeItemsHtml = selectedItems
-      .map(item => `<tr><td>${escapeHtml(item.ppeType)}</td><td>${escapeHtml(item.model)} · ${escapeHtml(item.size)}</td><td>${escapeHtml(item.enCertification)}</td><td>${item.quantity}</td></tr>`)
+    const selectedOptions = ppeCategoryOptions.filter(o => selectedPpeCategoryKeys.includes(o.key));
+    const ppeItemsSummary = selectedOptions
+      .map(o => {
+        const detail = ppeItemDetails[o.key];
+        const extra = [detail?.model, detail?.size].filter(Boolean).join(' · ');
+        return `${o.category}${o.standard ? ` (${o.standard})` : ''}${extra ? ` - ${extra}` : ''}`;
+      })
+      .join(', ');
+    const ppeItemsHtml = selectedOptions
+      .map(o => {
+        const detail = ppeItemDetails[o.key];
+        return `<tr><td>${escapeHtml(o.category)}</td><td>${o.standard ? escapeHtml(o.standard) : '-'}</td><td>${escapeHtml(detail?.model || '-')}</td><td>${escapeHtml(detail?.size || '-')}</td></tr>`;
+      })
       .join('');
 
     const createdIssue = await dataProvider.createPpeIssue({
@@ -217,7 +253,8 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     }
     setPpePdfUrl(result.pdfUrl);
     setPpeWorkflowOpen(false);
-    setSelectedPpeItems([]);
+    setSelectedPpeCategoryKeys([]);
+    setPpeItemDetails({});
     setPpeSignature(null);
     setPpeEmployeeSignature(null);
     setSelectedIssuerId(null);
@@ -314,24 +351,34 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                     </select>
                   </div>
                   <div className="section-title">Υποχρεωτικά ΜΑΠ (βάσει ειδικότητας)</div>
-                  {mandatoryPpeCatalog.length === 0 && <div className="row-subtitle">Δεν βρέθηκαν υποχρεωτικά ΜΑΠ για την ειδικότητα «{employee.position}».</div>}
-                  {mandatoryPpeCatalog.map(item => (
-                    <div key={item.id} className="card card-pad" style={{ marginTop: 8 }}>
+                  {mandatoryPpeOptions.length === 0 && <div className="row-subtitle">Δεν βρέθηκαν υποχρεωτικά ΜΑΠ για την ειδικότητα «{employee.position}».</div>}
+                  {mandatoryPpeOptions.map(option => (
+                    <div key={option.key} className="card card-pad" style={{ marginTop: 8 }}>
                       <label className="training-chip" style={{ display: 'flex', alignItems: 'center' }}>
-                        <input type="checkbox" checked={selectedPpeItems.includes(item.id)} onChange={() => togglePpeItem(item.id)} />
-                        <span>{item.ppeType} · {item.model} · {item.size}</span>
+                        <input type="checkbox" checked={selectedPpeCategoryKeys.includes(option.key)} onChange={() => togglePpeCategory(option.key)} />
+                        <span>{option.category}{option.standard ? ` · ${option.standard}` : ''}</span>
                       </label>
-                      <div className="row-subtitle" style={{ marginTop: 6 }}>EN: {item.enCertification} · Qty: {item.quantity} · Notes: {item.notes}</div>
+                      {selectedPpeCategoryKeys.includes(option.key) && (
+                        <div className="form-grid" style={{ marginTop: 8 }}>
+                          <input className="field-input" type="text" placeholder="Μοντέλο (προαιρετικά)" value={ppeItemDetails[option.key]?.model ?? ''} onChange={e => updatePpeItemDetail(option.key, 'model', e.target.value)} />
+                          <input className="field-input" type="text" placeholder="Νούμερο/Μέγεθος (προαιρετικά)" value={ppeItemDetails[option.key]?.size ?? ''} onChange={e => updatePpeItemDetail(option.key, 'size', e.target.value)} />
+                        </div>
+                      )}
                     </div>
                   ))}
                   <div className="section-title" style={{ marginTop: 16 }}>Προαιρετικά ΜΑΠ</div>
-                  {optionalPpeCatalog.map(item => (
-                    <div key={item.id} className="card card-pad" style={{ marginTop: 8 }}>
+                  {optionalPpeOptions.map(option => (
+                    <div key={option.key} className="card card-pad" style={{ marginTop: 8 }}>
                       <label className="training-chip" style={{ display: 'flex', alignItems: 'center' }}>
-                        <input type="checkbox" checked={selectedPpeItems.includes(item.id)} onChange={() => togglePpeItem(item.id)} />
-                        <span>{item.ppeType} · {item.model} · {item.size}</span>
+                        <input type="checkbox" checked={selectedPpeCategoryKeys.includes(option.key)} onChange={() => togglePpeCategory(option.key)} />
+                        <span>{option.category}{option.standard ? ` · ${option.standard}` : ''}</span>
                       </label>
-                      <div className="row-subtitle" style={{ marginTop: 6 }}>EN: {item.enCertification} · Qty: {item.quantity} · Notes: {item.notes}</div>
+                      {selectedPpeCategoryKeys.includes(option.key) && (
+                        <div className="form-grid" style={{ marginTop: 8 }}>
+                          <input className="field-input" type="text" placeholder="Μοντέλο (προαιρετικά)" value={ppeItemDetails[option.key]?.model ?? ''} onChange={e => updatePpeItemDetail(option.key, 'model', e.target.value)} />
+                          <input className="field-input" type="text" placeholder="Νούμερο/Μέγεθος (προαιρετικά)" value={ppeItemDetails[option.key]?.size ?? ''} onChange={e => updatePpeItemDetail(option.key, 'size', e.target.value)} />
+                        </div>
+                      )}
                     </div>
                   ))}
                   <div style={{ marginTop: 12 }}>
@@ -340,7 +387,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                   <div style={{ marginTop: 12 }}>
                     <SignaturePad signer={employee.fullName} title="Υπογραφή εργαζομένου" subtitle="Υπογραφή για τη χορήγηση ΜΑΠ" documentId={`ppe-employee-${employee.id}`} onSignatureCaptured={({ signatureData }) => setPpeEmployeeSignature(signatureData)} />
                   </div>
-                  <button className="primary-btn" type="button" style={{ marginTop: 12 }} onClick={() => void savePpeWorkflow()} disabled={!selectedPpeItems.length || !ppeSignature || !ppeEmployeeSignature || !selectedIssuerId}>Αποθήκευση PDF</button>
+                  <button className="primary-btn" type="button" style={{ marginTop: 12 }} onClick={() => void savePpeWorkflow()} disabled={!selectedPpeCategoryKeys.length || !ppeSignature || !ppeEmployeeSignature || !selectedIssuerId}>Αποθήκευση PDF</button>
                 </div>
               )}
               {ppePdfUrl && (
