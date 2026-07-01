@@ -162,20 +162,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 export class OcrAdapter {
-  async extractText(file: File, options: { documentType?: string; vehicleId?: number; vehiclePlate?: string } = {}): Promise<OcrResult> {
-    if (integrationConfig.powerAutomateFlows.ocrDocument) {
-      const fileContentBase64 = arrayBufferToBase64(await file.arrayBuffer());
-
-      return ocrDocumentPlaceholder({
-        fileName: file.name,
-        contentType: file.type,
-        documentType: options.documentType,
-        vehicleId: options.vehicleId,
-        vehiclePlate: options.vehiclePlate,
-        fileContentBase64,
-      });
-    }
-
+  private async extractWithTesseract(file: File): Promise<OcrResult> {
     const worker = await createWorker('ell+eng');
 
     try {
@@ -188,6 +175,35 @@ export class OcrAdapter {
     } finally {
       await worker.terminate();
     }
+  }
+
+  async extractText(file: File, options: { documentType?: string; vehicleId?: number; vehiclePlate?: string } = {}): Promise<OcrResult> {
+    if (integrationConfig.powerAutomateFlows.ocrDocument) {
+      const fileContentBase64 = arrayBufferToBase64(await file.arrayBuffer());
+
+      const flowResult = await ocrDocumentPlaceholder({
+        fileName: file.name,
+        contentType: file.type,
+        documentType: options.documentType,
+        vehicleId: options.vehicleId,
+        vehiclePlate: options.vehiclePlate,
+        fileContentBase64,
+      });
+
+      if (flowResult.text.trim().length > 0 || file.type === 'application/pdf') {
+        return flowResult;
+      }
+
+      const localResult = await this.extractWithTesseract(file);
+      return {
+        ...localResult,
+        status: 'local-ocr-fallback',
+        documentType: options.documentType,
+        fileName: file.name,
+      };
+    }
+
+    return this.extractWithTesseract(file);
   }
 }
 

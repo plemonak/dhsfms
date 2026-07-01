@@ -775,6 +775,23 @@ export async function ocrDocumentPlaceholder(input: {
   );
 
   function extractOcrText(value: unknown): string {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return '';
+      }
+
+      if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+        try {
+          return extractOcrText(JSON.parse(trimmed));
+        } catch {
+          return trimmed;
+        }
+      }
+
+      return trimmed;
+    }
+
     if (!value || typeof value !== 'object') {
       return '';
     }
@@ -799,9 +816,29 @@ export async function ocrDocumentPlaceholder(input: {
       }
     }
 
+    const textAnnotations = record.textAnnotations;
+    if (Array.isArray(textAnnotations)) {
+      const firstDescription = textAnnotations
+        .map(annotation => annotation && typeof annotation === 'object' ? (annotation as Record<string, unknown>).description : undefined)
+        .find(description => typeof description === 'string' && description.trim().length > 0);
+      if (typeof firstDescription === 'string') {
+        return firstDescription;
+      }
+    }
+
     const body = record.body;
-    if (body && typeof body === 'object') {
-      return extractOcrText(body);
+    if (body) {
+      const bodyText = extractOcrText(body);
+      if (bodyText) {
+        return bodyText;
+      }
+    }
+
+    for (const key of ['result', 'data', 'ocr', 'visionResponse', 'googleVisionResponse', 'fullText']) {
+      const nestedText = extractOcrText(record[key]);
+      if (nestedText) {
+        return nestedText;
+      }
     }
 
     return '';
