@@ -39,7 +39,7 @@ export interface IDataProvider {
   getDocuments(entityType?: EvidenceDocument['entityType'], entityId?: number): Promise<EvidenceDocument[]>;
   getPpeIssues(employeeId?: number): Promise<PpeIssue[]>;
   getSpecialtyMatrix(): Promise<SpecialtyMatrixEntry[]>;
-  createPpeIssue(input: { employeeId: number; siteId: number; issuedBy: string; ppeItemsSummary: string }): Promise<PpeIssue>;
+  createPpeIssue(input: { employeeId: number; siteId: number; issuedById: number; issuedByName: string; ppeItemsSummary: string }): Promise<PpeIssue>;
   attachPpeIssuePdf(ppeIssueId: number, pdfUrl: string): Promise<void>;
   cancelPpeIssue(ppeIssueId: number): Promise<void>;
   getInspections(siteId?: number): Promise<Inspection[]>;
@@ -326,18 +326,26 @@ export class MockDataProvider implements IDataProvider {
     return getSpecialtyMatrixFlow([]);
   }
 
-  async createPpeIssue(input: { employeeId: number; siteId: number; issuedBy: string; ppeItemsSummary: string }): Promise<PpeIssue> {
+  async createPpeIssue(input: { employeeId: number; siteId: number; issuedById: number; issuedByName: string; ppeItemsSummary: string }): Promise<PpeIssue> {
     const created: PpeIssue = {
       id: Date.now(),
       employeeId: input.employeeId,
       siteId: input.siteId,
       issueDate: new Date().toISOString().slice(0, 10),
-      issuedBy: input.issuedBy,
+      issuedBy: input.issuedByName,
       status: 'Active',
       ppeItemsSummary: input.ppeItemsSummary,
     };
 
-    const createdRemote = await createPpeIssueFlow({ ...created, flowType: 'create-ppe-issue' });
+    const createdRemote = await createPpeIssueFlow({
+      employeeId: input.employeeId,
+      siteId: input.siteId,
+      issuedById: input.issuedById,
+      issueDate: created.issueDate,
+      status: created.status,
+      ppeItemsSummary: created.ppeItemsSummary,
+      flowType: 'create-ppe-issue',
+    });
     if (createdRemote.status !== 'mock-fallback' && createdRemote.id) {
       created.id = createdRemote.id;
     }

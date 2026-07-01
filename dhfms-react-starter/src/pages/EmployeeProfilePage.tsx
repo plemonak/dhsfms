@@ -65,6 +65,7 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
   const [selectedPpeItems, setSelectedPpeItems] = useState<number[]>([]);
   const [ppePdfUrl, setPpePdfUrl] = useState<string | null>(null);
   const [ppeEmployeeSignature, setPpeEmployeeSignature] = useState<string | null>(null);
+  const [selectedIssuerId, setSelectedIssuerId] = useState<number | null>(null);
   const [specialtyMatrix, setSpecialtyMatrix] = useState<SpecialtyMatrixEntry[]>([]);
   const [selectedPpeIssueIds, setSelectedPpeIssueIds] = useState<number[]>([]);
   const [cancellingPpeIssues, setCancellingPpeIssues] = useState(false);
@@ -106,6 +107,8 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
   );
   const mandatoryPpeCatalog = ppeCatalog.filter(item => mandatoryPpeCategories.has(item.ppeType.trim().toLowerCase()));
   const optionalPpeCatalog = ppeCatalog.filter(item => !mandatoryPpeCategories.has(item.ppeType.trim().toLowerCase()));
+  const selectedIssuer = projectStaff.find(person => person.id === selectedIssuerId);
+  const selectedIssuerName = selectedIssuer?.displayName ?? selectedIssuer?.title ?? '';
 
   useEffect(() => {
     if (ppeWorkflowOpen) {
@@ -164,7 +167,9 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
 
   async function savePpeWorkflow() {
     if (!employee) return;
-    if (!selectedPpeItems.length || !ppeSignature || !ppeEmployeeSignature) return;
+    if (!selectedPpeItems.length || !ppeSignature || !ppeEmployeeSignature || !selectedIssuerId) return;
+    const issuer = projectStaff.find(person => person.id === selectedIssuerId);
+    const issuerName = issuer?.displayName ?? issuer?.title ?? `Στέλεχος #${selectedIssuerId}`;
     const selectedItems = ppeCatalog.filter(item => selectedPpeItems.includes(item.id));
     const ppeItemsSummary = selectedItems.map(item => `${item.ppeType} (${item.model}, ${item.size})`).join(', ');
     const ppeItemsHtml = selectedItems
@@ -174,7 +179,8 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
     const createdIssue = await dataProvider.createPpeIssue({
       employeeId: employee.id,
       siteId: employee.siteId,
-      issuedBy: trainerName,
+      issuedById: selectedIssuerId,
+      issuedByName: issuerName,
       ppeItemsSummary,
     });
 
@@ -182,7 +188,7 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
       employeeId: employee.id,
       employeeName: employee.fullName,
       issueDate: new Date().toISOString().slice(0, 10),
-      issuedBy: trainerName,
+      issuedBy: issuerName,
       siteName: 'Εργοτάξιο demo',
       pdfFileName: `${employee.employeeNo}-ppe.pdf`,
       ppeItemsSummary,
@@ -198,6 +204,7 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
     setSelectedPpeItems([]);
     setPpeSignature(null);
     setPpeEmployeeSignature(null);
+    setSelectedIssuerId(null);
     onPpeIssuesChanged();
   }
 
@@ -276,6 +283,20 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
               <button className="primary-btn" type="button" style={{ marginLeft: 8 }} onClick={() => setEquipmentWorkflowOpen(prev => !prev)}><FilePlus2 size={17} />+ Νέα Χρέωση Εξοπλισμού</button>
               {ppeWorkflowOpen && (
                 <div className="card card-pad" style={{ marginTop: 12 }}>
+                  <div className="field" style={{ marginBottom: 12 }}>
+                    <label className="field-label" htmlFor="ppe-issuer-select">Εκδότης</label>
+                    <select
+                      id="ppe-issuer-select"
+                      className="field-select"
+                      value={selectedIssuerId ?? ''}
+                      onChange={event => setSelectedIssuerId(event.target.value ? Number(event.target.value) : null)}
+                    >
+                      <option value="">-- Επιλογή --</option>
+                      {projectStaff.map(person => (
+                        <option key={person.id} value={person.id}>{person.displayName ?? person.title ?? `Στέλεχος #${person.id}`}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="section-title">Υποχρεωτικά ΜΑΠ (βάσει ειδικότητας)</div>
                   {mandatoryPpeCatalog.length === 0 && <div className="row-subtitle">Δεν βρέθηκαν υποχρεωτικά ΜΑΠ για την ειδικότητα «{employee.position}».</div>}
                   {mandatoryPpeCatalog.map(item => (
@@ -298,12 +319,12 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
                     </div>
                   ))}
                   <div style={{ marginTop: 12 }}>
-                    <SignaturePad signer={trainerName} title="Υπογραφή εκδότη" subtitle="Υπογραφή για τη χορήγηση ΜΑΠ" documentId={`ppe-issuer-${employee.id}`} onSignatureCaptured={({ signatureData }) => setPpeSignature(signatureData)} />
+                    <SignaturePad signer={selectedIssuerName || 'Εκδότης'} title="Υπογραφή εκδότη" subtitle="Υπογραφή για τη χορήγηση ΜΑΠ" documentId={`ppe-issuer-${employee.id}`} onSignatureCaptured={({ signatureData }) => setPpeSignature(signatureData)} />
                   </div>
                   <div style={{ marginTop: 12 }}>
                     <SignaturePad signer={employee.fullName} title="Υπογραφή εργαζομένου" subtitle="Υπογραφή για τη χορήγηση ΜΑΠ" documentId={`ppe-employee-${employee.id}`} onSignatureCaptured={({ signatureData }) => setPpeEmployeeSignature(signatureData)} />
                   </div>
-                  <button className="primary-btn" type="button" style={{ marginTop: 12 }} onClick={() => void savePpeWorkflow()} disabled={!selectedPpeItems.length || !ppeSignature || !ppeEmployeeSignature}>Αποθήκευση και PDF</button>
+                  <button className="primary-btn" type="button" style={{ marginTop: 12 }} onClick={() => void savePpeWorkflow()} disabled={!selectedPpeItems.length || !ppeSignature || !ppeEmployeeSignature || !selectedIssuerId}>Αποθήκευση και PDF</button>
                   {ppePdfUrl && <div className="row-subtitle" style={{ marginTop: 8 }}><a href={ppePdfUrl} target="_blank" rel="noreferrer">Το signed PPE PDF είναι έτοιμο — άνοιγμα</a></div>}
                 </div>
               )}
