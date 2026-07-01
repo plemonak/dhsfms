@@ -27,6 +27,14 @@ interface Props {
 
 const EVERYONE_SPECIALTY = 'όλοι';
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 export function EmployeeProfilePage({ employee, employees, trainings, documents, ppeIssues, onPpeIssuesChanged, activeTab, onTabChange, onBack, onEdit }: Props) {
   if (!employee) return <EmptyState title="Δεν βρέθηκε εργαζόμενος" />;
   const employeeTrainings = trainings.filter(t => t.participantIds.includes(employee.id));
@@ -159,6 +167,9 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
     if (!selectedPpeItems.length || !ppeSignature || !ppeEmployeeSignature) return;
     const selectedItems = ppeCatalog.filter(item => selectedPpeItems.includes(item.id));
     const ppeItemsSummary = selectedItems.map(item => `${item.ppeType} (${item.model}, ${item.size})`).join(', ');
+    const ppeItemsHtml = selectedItems
+      .map(item => `<tr><td>${escapeHtml(item.ppeType)}</td><td>${escapeHtml(item.model)} · ${escapeHtml(item.size)}</td><td>${escapeHtml(item.enCertification)}</td><td>${item.quantity}</td></tr>`)
+      .join('');
 
     const createdIssue = await dataProvider.createPpeIssue({
       employeeId: employee.id,
@@ -175,6 +186,7 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
       siteName: 'Εργοτάξιο demo',
       pdfFileName: `${employee.employeeNo}-ppe.pdf`,
       ppeItemsSummary,
+      ppeItemsHtml,
       issuerSignatureBase64: ppeSignature,
       employeeSignatureBase64: ppeEmployeeSignature,
     });

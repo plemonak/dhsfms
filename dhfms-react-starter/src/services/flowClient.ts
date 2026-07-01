@@ -18,6 +18,7 @@ export interface GeneratePpeIssuePdfInput {
   siteName?: string;
   pdfFileName: string;
   ppeItemsSummary?: string;
+  ppeItemsHtml?: string;
   issuerSignatureBase64?: string;
   employeeSignatureBase64?: string;
 }
