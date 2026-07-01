@@ -8,13 +8,14 @@ import { SignaturePad } from '../components/SignaturePad';
 import { StatusBadge } from '../components/StatusBadge';
 import { QrPreviewModal } from '../components/QrPreviewModal';
 import { dataProvider } from '../services/dataProvider';
-import type { Employee, EvidenceDocument, PpeIssue, TrainingSession } from '../types/models';
+import type { Employee, EvidenceDocument, PpeIssue, Site, TrainingSession } from '../types/models';
 
 type TrainingWorkflowTab = 'new' | 'signatures' | 'history' | 'attendance';
 
 interface Props {
   employee?: Employee;
   employees: Employee[];
+  sites: Site[];
   trainings: TrainingSession[];
   documents: EvidenceDocument[];
   ppeIssues: PpeIssue[];
@@ -35,8 +36,9 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
-export function EmployeeProfilePage({ employee, employees, trainings, documents, ppeIssues, onPpeIssuesChanged, activeTab, onTabChange, onBack, onEdit }: Props) {
+export function EmployeeProfilePage({ employee, employees, sites, trainings, documents, ppeIssues, onPpeIssuesChanged, activeTab, onTabChange, onBack, onEdit }: Props) {
   if (!employee) return <EmptyState title="Δεν βρέθηκε εργαζόμενος" />;
+  const employeeSite = sites.find(site => site.id === employee.siteId);
   const employeeTrainings = trainings.filter(t => t.participantIds.includes(employee.id));
   const medicalDocs = documents.filter(d => d.documentType.toLowerCase().includes('ιατρ') || d.documentType.toLowerCase().includes('fit'));
   const licenseDocs = documents.filter(d => d.documentType.toLowerCase().includes('άδεια') || d.documentType.toLowerCase().includes('license'));
@@ -189,7 +191,7 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
       employeeName: employee.fullName,
       issueDate: new Date().toISOString().slice(0, 10),
       issuedBy: issuerName,
-      siteName: 'Εργοτάξιο demo',
+      siteName: employeeSite?.name ?? '-',
       pdfFileName: `${employee.employeeNo}-ppe-${Date.now()}.pdf`,
       ppeItemsSummary,
       ppeItemsHtml,
@@ -231,7 +233,7 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
       employeeName: employee.fullName,
       issueDate: equipmentIssueDate,
       issuedBy: trainerName,
-      siteName: 'Εργοτάξιο demo',
+      siteName: employeeSite?.name ?? '-',
       pdfFileName: `${employee.employeeNo}-equipment-assignment.pdf`,
     });
     setEquipmentAssignmentPdfUrl(result.pdfUrl);

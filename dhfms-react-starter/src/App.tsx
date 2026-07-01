@@ -192,7 +192,7 @@ export default function App() {
       case 'employees':
         return <EmployeesPage employees={employees} onOpen={(id) => { setSelectedEmployeeId(id); setProfileTab('ppe'); setPage('employee-profile'); }} onNew={() => setPage('employee-form')} />;
       case 'employee-profile':
-        return <EmployeeProfilePage employee={selectedEmployee} employees={employees} trainings={trainings} documents={documents.filter(d => d.entityType === 'employee' && d.entityId === selectedEmployeeId)} ppeIssues={ppeIssues.filter(p => p.employeeId === selectedEmployeeId)} onPpeIssuesChanged={refreshPpeIssues} activeTab={profileTab} onTabChange={setProfileTab} onBack={() => setPage('employees')} onEdit={() => setPage('employee-form')} />;
+        return <EmployeeProfilePage employee={selectedEmployee} employees={employees} sites={sites} trainings={trainings} documents={documents.filter(d => d.entityType === 'employee' && d.entityId === selectedEmployeeId)} ppeIssues={ppeIssues.filter(p => p.employeeId === selectedEmployeeId)} onPpeIssuesChanged={refreshPpeIssues} activeTab={profileTab} onTabChange={setProfileTab} onBack={() => setPage('employees')} onEdit={() => setPage('employee-form')} />;
       case 'employee-form':
         return <EmployeeFormPage onBack={() => setPage(selectedEmployeeId ? 'employee-profile' : 'employees')} onSave={handleCreateEmployee} sites={sites} selectedSiteId={selectedSiteId} positionOptions={employeePositionOptions} companyOptions={employeeCompanyOptions} />;
       case 'training':
