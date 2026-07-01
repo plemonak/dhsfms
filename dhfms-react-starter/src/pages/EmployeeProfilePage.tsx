@@ -402,7 +402,7 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
       <SectionCard title="Βασικά στοιχεία">
         <div className="form-grid">
           <div><div className="field-label">Αριθμός εργαζομένου</div><strong>{employee.employeeNo}</strong></div>
-          <div><div className="field-label">Κατηγορία</div><strong>{employee.personType}</strong></div>
+          <div><div className="field-label">Εταιρεία</div><strong>{employee.contractor ?? employee.company}</strong></div>
           <div><div className="field-label">Κινητό</div><strong>{employee.mobile ?? '-'}</strong></div>
           <div><div className="field-label">Email</div><strong>{employee.email ?? '-'}</strong></div>
           <div><div className="field-label">ΑΔΤ / Διαβατήριο</div><strong>{employee.identityDocumentNo ?? employee.idOrTaxNo ?? '-'}</strong></div>
