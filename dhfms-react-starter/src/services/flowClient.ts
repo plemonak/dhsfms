@@ -675,11 +675,17 @@ export async function getSpecialtyMatrixFlow(fallback: SpecialtyMatrixEntry[]): 
     fallback as unknown as Array<Record<string, unknown>>
   );
 
+  function toBoolean(value: unknown): boolean {
+    if (typeof value === 'boolean') return value;
+    const text = String(value ?? '').trim().toLowerCase();
+    return text === 'yes' || text === 'true' || text === '1';
+  }
+
   return result.data.map((raw) => ({
     specialty: String(raw.specialty ?? raw.Specialty ?? ''),
     ppeCategory: String(raw.ppeCategory ?? raw.PPECategory ?? ''),
     standard: raw.standard !== undefined || raw.Standard !== undefined ? String(raw.standard ?? raw.Standard) : undefined,
-    isMandatory: String(raw.isMandatory ?? raw.IsMandatory ?? '').trim().toLowerCase() === 'yes',
+    isMandatory: toBoolean(raw.isMandatory ?? raw.IsMandatory),
   }));
 }
 
@@ -693,12 +699,14 @@ export async function generateTrainingPdf(input: GenerateTrainingPdfInput): Prom
 }
 
 export async function generatePpeIssuePdf(input: GeneratePpeIssuePdfInput): Promise<{ pdfUrl: string; status?: string }> {
-  const result = await invokeFlow(
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'ppeIssuePdf',
     integrationConfig.powerAutomateFlows.ppeIssuePdf,
     { ...input, flowType: 'ppe-issue-pdf' },
-    '#'
+    { pdfUrl: '#' }
   );
-  return { pdfUrl: result.url ?? '#', status: result.status };
+  const pdfUrl = typeof result.data.pdfUrl === 'string' ? result.data.pdfUrl : '#';
+  return { pdfUrl, status: result.status };
 }
 
 export async function generateTrainingAttendancePdf(input: GenerateTrainingAttendancePdfInput): Promise<{ pdfUrl: string; status?: string }> {
