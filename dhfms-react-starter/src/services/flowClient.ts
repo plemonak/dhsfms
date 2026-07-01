@@ -563,7 +563,8 @@ export async function createEmployeeFlow(payload: Record<string, unknown>): Prom
     { ...enrichedPayload, flowType: 'create-employee' },
     enrichedPayload
   );
-  const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
+  const rawId = result.data.id ?? result.data.ID ?? result.data.itemId;
+  const responseId = typeof rawId === 'number' ? rawId : Number.isFinite(Number(rawId)) ? Number(rawId) : undefined;
   return { id: responseId, status: result.status };
 }
 
