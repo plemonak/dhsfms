@@ -296,6 +296,7 @@ button { cursor: pointer; }
 .form-field select,
 .form-field textarea,
 .field-input {
+  width: 100%;
   min-height: var(--dh-tap-min);
   padding: 10px 14px;
   font-size: 16px; /* αποτρέπει auto-zoom σε iOS Safari */
