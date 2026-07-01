@@ -24,6 +24,15 @@ export interface Employee {
   mobile?: string;
   email?: string;
   idOrTaxNo?: string;
+  taxNumber?: string;
+  fatherName?: string;
+  birthDate?: string;
+  gender?: string;
+  nationality?: string;
+  identityDocumentType?: 'Ταυτότητα' | 'Διαβατήριο' | 'Άλλο';
+  identityDocumentNo?: string;
+  identityIssuingAuthority?: string;
+  identityExpiryDate?: string;
   hireDate?: string;
 }
 

@@ -235,6 +235,17 @@ export async function getEmployeesFlow(siteId: number | undefined, fallback: Emp
       status: (toDisplayText(raw.status) ?? 'Active') as Employee['status'],
       email: toDisplayText(raw.email),
       mobile: toDisplayText(raw.mobile),
+      idOrTaxNo: toDisplayText(raw.idOrTaxNo ?? raw.IDOrPassport ?? raw.IdentityDocumentNo),
+      taxNumber: toDisplayText(raw.taxNumber ?? raw.TaxNumber ?? raw.AFM),
+      fatherName: toDisplayText(raw.fatherName ?? raw.FatherName),
+      birthDate: toDisplayText(raw.birthDate ?? raw.BirthDate),
+      gender: toDisplayText(raw.gender ?? raw.Gender),
+      nationality: toDisplayText(raw.nationality ?? raw.Nationality),
+      identityDocumentType: toDisplayText(raw.identityDocumentType ?? raw.IdentityDocumentType) as Employee['identityDocumentType'],
+      identityDocumentNo: toDisplayText(raw.identityDocumentNo ?? raw.IdentityDocumentNo ?? raw.IDOrPassport),
+      identityIssuingAuthority: toDisplayText(raw.identityIssuingAuthority ?? raw.IdentityIssuingAuthority),
+      identityExpiryDate: toDisplayText(raw.identityExpiryDate ?? raw.IdentityExpiryDate),
+      hireDate: toDisplayText(raw.hireDate ?? raw.HireDate),
       company,
       contractor: contractor ?? (company !== 'DYKAT' ? company : undefined),
       siteId: employee.siteId ?? siteId ?? 2,
@@ -410,6 +421,58 @@ export async function getVehicleDocumentsFlow(fallback: EvidenceDocument[] = [])
   });
 }
 
+export async function getEmployeeDocumentsFlow(fallback: EvidenceDocument[] = []): Promise<Array<EvidenceDocument & Record<string, unknown>>> {
+  const result = await invokeFlowData<Array<EvidenceDocument & Record<string, unknown>>>(
+    'getEmployeeDocuments',
+    integrationConfig.powerAutomateFlows.getEmployeeDocuments,
+    { flowType: 'get-employee-documents' },
+    fallback as Array<EvidenceDocument & Record<string, unknown>>
+  );
+
+  function toDisplayText(value: unknown): string | undefined {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+
+    if (typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      const lookupValue = record.Value ?? record.Title ?? record.Name ?? record.DisplayName;
+      return lookupValue === undefined || lookupValue === null ? undefined : String(lookupValue);
+    }
+
+    return String(value);
+  }
+
+  return result.data.map((document) => {
+    const raw = document as EvidenceDocument & Record<string, unknown>;
+    const employeeValue = raw.employeeId ?? raw.EmployeeId ?? raw.EmployeeID ?? raw.Employee;
+    const employeeId = typeof employeeValue === 'object' && employeeValue
+      ? Number((employeeValue as Record<string, unknown>).Id ?? (employeeValue as Record<string, unknown>).ID ?? 0)
+      : Number(employeeValue ?? 0);
+
+    return {
+      ...document,
+      id: Number(raw.id ?? raw.ID ?? raw.itemId ?? 0),
+      entityType: 'employee',
+      entityId: employeeId,
+      documentType: toDisplayText(raw.documentType ?? raw.DocumentType ?? raw.EmployeeDocumentType ?? raw.Employee_x0020_Document_x0020_Type) ?? 'Έγγραφο εργαζομένου',
+      fileName: toDisplayText(raw.fileName ?? raw.FileName ?? raw.attachmentName ?? raw.AttachmentName),
+      issueDate: toDisplayText(raw.issueDate ?? raw.IssueDate ?? raw.Issue_x0020_Date),
+      expiryDate: toDisplayText(raw.expiryDate ?? raw.ExpiryDate ?? raw.Expiry_x0020_Date),
+      status: (toDisplayText(raw.status ?? raw.Status ?? raw.EmployeeDocumentStatus ?? raw.Employee_x0020_Document_x0020_Status) ?? 'Active') as EvidenceDocument['status'],
+      url: toDisplayText(raw.url ?? raw.Url ?? raw.link ?? raw.Link ?? raw.itemUrl ?? raw.ItemUrl),
+    };
+  });
+}
+
 
 export async function getProjectStaffFlow(siteId: number | undefined, fallback: ProjectStaffMember[]): Promise<ProjectStaffMember[]> {
   const result = await invokeFlowData<ProjectStaffMember[]>(
@@ -465,11 +528,40 @@ export async function getPpeCatalogFlow(fallback: PpeCatalogItem[]): Promise<Ppe
 }
 
 export async function createEmployeeFlow(payload: Record<string, unknown>): Promise<{ id?: number; status: string }> {
+  const enrichedPayload = {
+    ...payload,
+    Title: payload.fullName ?? `${payload.lastName ?? ''} ${payload.firstName ?? ''}`.trim(),
+    FullName: payload.fullName ?? `${payload.lastName ?? ''} ${payload.firstName ?? ''}`.trim(),
+    FirstName: payload.firstName,
+    LastName: payload.lastName,
+    EmployeeNo: payload.employeeNo,
+    Position: payload.position,
+    Company: payload.company,
+    Contractor: payload.company,
+    PersonType: payload.personType,
+    Mobile: payload.mobile,
+    Email: payload.email,
+    TaxNumber: payload.taxNumber,
+    AFM: payload.taxNumber,
+    IdentityDocumentNo: payload.identityDocumentNo ?? payload.idOrTaxNo,
+    IDOrPassport: payload.idOrTaxNo,
+    FatherName: payload.fatherName,
+    BirthDate: payload.birthDate,
+    Gender: payload.gender,
+    Nationality: payload.nationality,
+    IdentityDocumentType: payload.identityDocumentType,
+    IdentityIssuingAuthority: payload.identityIssuingAuthority,
+    IdentityExpiryDate: payload.identityExpiryDate,
+    HireDate: payload.hireDate,
+    Status: payload.status,
+    SiteId: payload.siteId,
+  };
+
   const result = await invokeFlowData<Record<string, unknown>>(
     'createEmployee',
     integrationConfig.powerAutomateFlows.createEmployee,
-    { ...payload, flowType: 'create-employee' },
-    payload
+    { ...enrichedPayload, flowType: 'create-employee' },
+    enrichedPayload
   );
   const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
   return { id: responseId, status: result.status };
@@ -599,6 +691,51 @@ export async function uploadEvidence(file: File, folderPath: string): Promise<{ 
   };
 
   const result = await invokeFlow(integrationConfig.powerAutomateFlows.evidenceUpload, payload, fallbackUrl);
+  return {
+    url: result.url ?? fallbackUrl,
+    status: result.status,
+    fileName: file.name,
+  };
+}
+
+export async function uploadEmployeeDocument(
+  file: File,
+  input: {
+    employeeId: number;
+    employeeName: string;
+    documentType: string;
+    issueDate?: string;
+    expiryDate?: string;
+    issuingAuthority?: string;
+    mandatory?: boolean;
+    aiWarnings?: string;
+    notes?: string;
+  }
+): Promise<{ url: string; status?: string; fileName: string }> {
+  const fallbackUrl = URL.createObjectURL(file);
+  const folderPath = `Employees/${input.employeeId}/${input.documentType}`;
+  const payload = {
+    fileName: file.name,
+    folderPath,
+    siteUrl: integrationConfig.sharePointSiteUrl,
+    listName: integrationConfig.sharePointLists.employeeDocuments,
+    rootFolder: integrationConfig.evidenceRootFolder,
+    employeeId: input.employeeId,
+    employeeName: input.employeeName,
+    documentType: input.documentType,
+    issueDate: input.issueDate,
+    expiryDate: input.expiryDate,
+    issuingAuthority: input.issuingAuthority,
+    mandatory: input.mandatory ?? true,
+    aiWarnings: input.aiWarnings,
+    notes: input.notes,
+    status: input.expiryDate ? 'Active' : 'Available',
+    contentType: file.type || 'application/octet-stream',
+    fileContentBase64: await fileToBase64(file),
+    flowType: 'upload-employee-document',
+  };
+
+  const result = await invokeFlow(integrationConfig.powerAutomateFlows.employeeDocumentUpload, payload, fallbackUrl);
   return {
     url: result.url ?? fallbackUrl,
     status: result.status,

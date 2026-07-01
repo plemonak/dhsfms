@@ -8,19 +8,24 @@ import type { Employee, Site } from '../types/models';
 
 interface Props {
   onBack: () => void;
-  onSave: (employee: Omit<Employee, 'id' | 'fullName'>) => void;
+  onSave: (employee: Omit<Employee, 'id' | 'fullName'>, identityDocument?: EmployeeIdentityDocumentDraft) => void;
   sites: Site[];
   selectedSiteId: number | 'all';
   positionOptions: string[];
   companyOptions: string[];
 }
 
-type EmployeeFormState = Omit<Employee, 'id' | 'fullName'> & {
-  fatherName: string;
-  birthDate: string;
-  gender: string;
-  issuingAuthority: string;
+export type EmployeeIdentityDocumentDraft = {
+  sourceFile: File;
+  fileName: string;
+  documentType: string;
+  issueDate?: string;
+  expiryDate?: string;
+  issuingAuthority?: string;
+  aiWarnings?: string;
 };
+
+type EmployeeFormState = Omit<Employee, 'id' | 'fullName'>;
 
 function normalizeValue(value: string | undefined): string {
   return (value ?? '').trim();
@@ -28,6 +33,24 @@ function normalizeValue(value: string | undefined): string {
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function parseDateToIso(value: string): string | undefined {
+  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) return value;
+
+  const match = value.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+  if (!match) return undefined;
+
+  const day = match[1].padStart(2, '0');
+  const month = match[2].padStart(2, '0');
+  const rawYear = match[3];
+  const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeIdentityNumber(value?: string): string {
+  return (value ?? '').replace(/\s+/g, '').replace(/[^\p{L}\p{N}]/gu, '').toUpperCase();
 }
 
 export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positionOptions, companyOptions }: Props) {
@@ -43,17 +66,24 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
     mobile: '',
     email: '',
     idOrTaxNo: '',
+    taxNumber: '',
     hireDate: new Date().toISOString().slice(0, 10),
     fatherName: '',
     birthDate: '',
     gender: '',
-    issuingAuthority: '',
+    nationality: '',
+    identityDocumentType: 'Ταυτότητα',
+    identityDocumentNo: '',
+    identityIssuingAuthority: '',
+    identityExpiryDate: '',
   });
   const [ocrFileName, setOcrFileName] = useState('');
   const [ocrPreviewUrl, setOcrPreviewUrl] = useState<string | null>(null);
   const [ocrStatus, setOcrStatus] = useState('');
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrExtractedFields, setOcrExtractedFields] = useState<string[]>([]);
+  const [identityFile, setIdentityFile] = useState<File | null>(null);
+  const [identityConfirmed, setIdentityConfirmed] = useState(false);
   const ocrInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -77,9 +107,13 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
     const lastName = extract('Επώνυμο') || extract('Surname') || extract('Lastname');
     const firstName = extract('Όνομα') || extract('Name') || extract('Firstname');
     const fatherName = extract('Πατρώνυμο') || extract('Father') || extract('FatherName');
-    const birthDate = extract('Ημερομηνία γέννησης') || extract('Birth date') || extract('Date of birth');
-    const idOrTaxNo = extract('ΑΔΤ / Αρ. Διαβατηρίου') || extract('ΑΔΤ') || extract('Passport') || extract('ID');
+    const birthDate = parseDateToIso(extract('Ημερομηνία γέννησης') || extract('Birth date') || extract('Date of birth')) ?? '';
+    const expiryDate = parseDateToIso(extract('Ημερομηνία λήξης') || extract('Λήξη') || extract('Expiry date') || extract('Date of expiry')) ?? '';
+    const explicitId = extract('ΑΔΤ / Αρ. Διαβατηρίου') || extract('ΑΔΤ') || extract('Passport') || extract('Passport No') || extract('Document No') || extract('ID');
+    const identityMatch = normalizedText.match(/\b[A-ZΑ-Ω]{1,3}\s?\d{5,9}\b/u);
+    const idOrTaxNo = normalizeIdentityNumber(explicitId || identityMatch?.[0]);
     const gender = extract('Φύλο') || extract('Gender');
+    const nationality = extract('Ιθαγένεια') || extract('Nationality');
     const issuingAuthority = extract('Αρχή έκδοσης') || extract('Issued by') || extract('Authority');
 
     const extractedFields = [
@@ -87,8 +121,10 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
       firstName ? `Όνομα: ${firstName}` : null,
       fatherName ? `Πατρώνυμο: ${fatherName}` : null,
       birthDate ? `Γέννηση: ${birthDate}` : null,
-      idOrTaxNo ? `ΑΔΤ/ΑΦΜ: ${idOrTaxNo}` : null,
+      idOrTaxNo ? `ΑΔΤ/Διαβατήριο: ${idOrTaxNo}` : null,
+      expiryDate ? `Λήξη εγγράφου: ${expiryDate}` : null,
       gender ? `Φύλο: ${gender}` : null,
+      nationality ? `Ιθαγένεια: ${nationality}` : null,
       issuingAuthority ? `Αρχή έκδοσης: ${issuingAuthority}` : null,
     ].filter(Boolean) as string[];
     setOcrExtractedFields(extractedFields);
@@ -100,8 +136,11 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
       fatherName: fatherName || prev.fatherName,
       birthDate: birthDate || prev.birthDate,
       idOrTaxNo: idOrTaxNo || prev.idOrTaxNo,
+      identityDocumentNo: idOrTaxNo || prev.identityDocumentNo,
+      identityExpiryDate: expiryDate || prev.identityExpiryDate,
       gender: gender || prev.gender,
-      issuingAuthority: issuingAuthority || prev.issuingAuthority,
+      nationality: nationality || prev.nationality,
+      identityIssuingAuthority: issuingAuthority || prev.identityIssuingAuthority,
     }));
   }
 
@@ -111,9 +150,10 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
     setOcrLoading(true);
     setOcrStatus('');
     setOcrExtractedFields([]);
+    setIdentityConfirmed(false);
 
     try {
-      const result = await dataProvider.extractDocumentText(file, { documentType: 'IdentityDocument' });
+      const result = await dataProvider.extractDocumentText(file, { documentType: form.identityDocumentType ?? 'IdentityDocument' });
       applyOcrFields(result.text);
       setOcrStatus(result.confidence > 0.2 ? 'Το OCR ολοκληρώθηκε και τα πεδία συμπληρώθηκαν για έλεγχο.' : 'Ενεργοποιήθηκε mock OCR fallback. Ελέγξτε τα πεδία πριν την αποθήκευση.');
     } catch (error) {
@@ -134,25 +174,44 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
     }
 
     setOcrFileName(file.name);
+    setIdentityFile(file);
     setOcrPreviewUrl(URL.createObjectURL(file));
     await handleOcr(file);
   }
 
   const submitEmployee = () => {
-    const { fatherName, birthDate, gender, issuingAuthority, ...employeeData } = form;
-    onSave(employeeData);
+    const identityDocument = identityFile && identityConfirmed
+      ? {
+          sourceFile: identityFile,
+          fileName: identityFile.name,
+          documentType: form.identityDocumentType ?? 'Ταυτότητα',
+          expiryDate: form.identityExpiryDate,
+          issuingAuthority: form.identityIssuingAuthority,
+          aiWarnings: ocrStatus,
+        }
+      : undefined;
+
+    onSave(form, identityDocument);
   };
 
   return (
     <div className="page">
       <PageHeader title="Νέος εργαζόμενος" subtitle="Καταχώρηση προσωπικού / υπεργολάβου" actions={<button className="secondary-btn" onClick={onBack}><ArrowLeft size={17} />Πίσω</button>} />
       <div className="form">
-        <SectionCard title="OCR ταυτότητας (προαιρετικό)">
+        <SectionCard title="OCR ταυτότητας / διαβατηρίου">
           <div className="form-grid">
+            <FormField label="Τύπος εγγράφου">
+              <select className="field-select" value={form.identityDocumentType} onChange={e => update('identityDocumentType', e.target.value)}>
+                <option>Ταυτότητα</option>
+                <option>Διαβατήριο</option>
+                <option>Άλλο</option>
+              </select>
+            </FormField>
+
             <div style={{ gridColumn: '1 / -1' }}>
-              <label className="field-label" htmlFor="employee-ocr-file">Ανέβασμα εικόνας / φωτογραφία ταυτότητας</label>
-              <input ref={ocrInputRef} id="employee-ocr-file" className="field-input" type="file" accept="image/*" capture="environment" onChange={handleFileChange} />
-              <div className="row-subtitle" style={{ marginTop: 8 }}>Η OCR συμπληρώνει τα πεδία για έλεγχο. Δεν αποθηκεύονται αυτόματα οι τιμές.</div>
+              <label className="field-label" htmlFor="employee-ocr-file">Ανέβασμα εικόνας ή PDF</label>
+              <input ref={ocrInputRef} id="employee-ocr-file" className="field-input" type="file" accept="image/*,.pdf" capture="environment" onChange={handleFileChange} />
+              <div className="row-subtitle" style={{ marginTop: 8 }}>Το OCR συμπληρώνει τα πεδία για έλεγχο. Το αρχείο αποθηκεύεται μόνο όταν επιβεβαιώσετε και πατήσετε αποθήκευση.</div>
             </div>
             {ocrPreviewUrl && (
               <div style={{ gridColumn: '1 / -1' }}>
@@ -171,6 +230,18 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
                     {ocrExtractedFields.map(field => <li key={field}>{field}</li>)}
                   </ul>
                 </div>
+              )}
+              {identityFile && (
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12 }}>
+                  <input
+                    type="checkbox"
+                    checked={identityConfirmed}
+                    onChange={e => setIdentityConfirmed(e.target.checked)}
+                  />
+                  <span className="row-subtitle">
+                    Επιβεβαιώνω ότι το έγγραφο αφορά τον συγκεκριμένο εργαζόμενο και μπορεί να αποθηκευτεί στο EmployeeDocuments.
+                  </span>
+                </label>
               )}
             </div>
           </div>
@@ -214,8 +285,16 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
                 <input className="field-input" value={form.gender} onChange={e => update('gender', e.target.value)} />
               </FormField>
 
-              <FormField label="Αρχή έκδοσης">
-                <input className="field-input" value={form.issuingAuthority} onChange={e => update('issuingAuthority', e.target.value)} />
+              <FormField label="Ιθαγένεια">
+                <input className="field-input" value={form.nationality} onChange={e => update('nationality', e.target.value)} />
+              </FormField>
+
+              <FormField label="Αρχή έκδοσης ταυτότητας/διαβατηρίου">
+                <input className="field-input" value={form.identityIssuingAuthority} onChange={e => update('identityIssuingAuthority', e.target.value)} />
+              </FormField>
+
+              <FormField label="Λήξη ταυτότητας/διαβατηρίου">
+                <input type="date" className="field-input" value={form.identityExpiryDate} onChange={e => update('identityExpiryDate', e.target.value)} />
               </FormField>
 
               <FormField label="Θέση / ειδικότητα">
@@ -248,8 +327,18 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
             <FormField label="Email">
               <input className="field-input" value={form.email} onChange={e => update('email', e.target.value)} />
             </FormField>
-            <FormField label="ΑΔΤ / Διαβατήριο / ΑΦΜ">
-              <input className="field-input" value={form.idOrTaxNo} onChange={e => update('idOrTaxNo', e.target.value)} />
+            <FormField label="ΑΔΤ / Διαβατήριο">
+              <input
+                className="field-input"
+                value={form.identityDocumentNo || form.idOrTaxNo || ''}
+                onChange={e => {
+                  update('identityDocumentNo', e.target.value);
+                  update('idOrTaxNo', e.target.value);
+                }}
+              />
+            </FormField>
+            <FormField label="ΑΦΜ">
+              <input className="field-input" value={form.taxNumber} onChange={e => update('taxNumber', e.target.value)} />
             </FormField>
           </div>
         </SectionCard>

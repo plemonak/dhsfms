@@ -13,6 +13,7 @@ import {
   getProjectStaffFlow,
   getTrainingTopicsFlow,
   ocrDocumentPlaceholder,
+  uploadEmployeeDocument,
   uploadEvidence,
 } from './flowClient';
 import { documents, trainings } from '../data/mockData';
@@ -120,6 +121,23 @@ export class FlowAdapter {
       return uploadEvidence(file, folderPath);
     }
     return uploadEvidence(file, folderPath);
+  }
+
+  async uploadEmployeeDocument(
+    file: File,
+    input: {
+      employeeId: number;
+      employeeName: string;
+      documentType: string;
+      issueDate?: string;
+      expiryDate?: string;
+      issuingAuthority?: string;
+      mandatory?: boolean;
+      aiWarnings?: string;
+      notes?: string;
+    }
+  ) {
+    return uploadEmployeeDocument(file, input);
   }
 
   async createQrPrintPayload(payload: string) {

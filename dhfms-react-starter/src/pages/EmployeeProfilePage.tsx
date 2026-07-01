@@ -405,7 +405,11 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
           <div><div className="field-label">Κατηγορία</div><strong>{employee.personType}</strong></div>
           <div><div className="field-label">Κινητό</div><strong>{employee.mobile ?? '-'}</strong></div>
           <div><div className="field-label">Email</div><strong>{employee.email ?? '-'}</strong></div>
-          <div><div className="field-label">ΑΔΤ / Διαβατήριο / ΑΦΜ</div><strong>{employee.idOrTaxNo ?? '-'}</strong></div>
+          <div><div className="field-label">ΑΔΤ / Διαβατήριο</div><strong>{employee.identityDocumentNo ?? employee.idOrTaxNo ?? '-'}</strong></div>
+          <div><div className="field-label">ΑΦΜ</div><strong>{employee.taxNumber ?? '-'}</strong></div>
+          <div><div className="field-label">Πατρώνυμο</div><strong>{employee.fatherName ?? '-'}</strong></div>
+          <div><div className="field-label">Ημερομηνία γέννησης</div><strong>{employee.birthDate ?? '-'}</strong></div>
+          <div><div className="field-label">Λήξη ταυτότητας/διαβατηρίου</div><strong>{employee.identityExpiryDate ?? '-'}</strong></div>
         </div>
       </SectionCard>
 

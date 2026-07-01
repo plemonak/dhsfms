@@ -19,6 +19,7 @@ export const integrationConfig = {
     attendance: readEnv('VITE_SHAREPOINT_LIST_ATTENDANCE') ?? 'TrainingAttendance',
     medical: readEnv('VITE_SHAREPOINT_LIST_MEDICAL') ?? 'MedicalCertificates',
     licenses: readEnv('VITE_SHAREPOINT_LIST_LICENSES') ?? 'EmployeeLicenses',
+    employeeDocuments: readEnv('VITE_SHAREPOINT_LIST_EMPLOYEE_DOCUMENTS') ?? 'EmployeeDocuments',
     ppe: readEnv('VITE_SHAREPOINT_LIST_PPE') ?? 'PPEIssuances',
     vehicles: readEnv('VITE_SHAREPOINT_LIST_VEHICLES') ?? 'Vehicles',
     vehicleDocuments: readEnv('VITE_SHAREPOINT_LIST_VEHICLE_DOCUMENTS') ?? 'VehicleDocuments',
@@ -29,6 +30,7 @@ export const integrationConfig = {
   evidenceRootFolder: readEnv('VITE_SHAREPOINT_EVIDENCE_ROOT_FOLDER'),
   powerAutomateFlows: {
     getEmployees: readEnv('VITE_POWERAUTOMATE_FLOW_GET_EMPLOYEES'),
+    getEmployeeDocuments: readEnv('VITE_POWERAUTOMATE_FLOW_GET_EMPLOYEE_DOCUMENTS'),
     getVehicles: readEnv('VITE_POWERAUTOMATE_FLOW_GET_VEHICLES'),
     getVehicleDocuments: readEnv('VITE_POWERAUTOMATE_FLOW_GET_VEHICLE_DOCUMENTS'),
     getSites: readEnv('VITE_POWERAUTOMATE_FLOW_GET_SITES'),
@@ -47,6 +49,7 @@ export const integrationConfig = {
     ppeIssuePdf: readEnv('VITE_POWERAUTOMATE_FLOW_PPE_ISSUE_PDF'),
     trainingAttendancePdf: readEnv('VITE_POWERAUTOMATE_FLOW_TRAINING_ATTENDANCE_PDF'),
     evidenceUpload: readEnv('VITE_POWERAUTOMATE_FLOW_UPLOAD_EVIDENCE'),
+    employeeDocumentUpload: readEnv('VITE_POWERAUTOMATE_FLOW_UPLOAD_EMPLOYEE_DOCUMENT'),
     qrPdf: readEnv('VITE_POWERAUTOMATE_FLOW_QR_PDF'),
     ocrDocument: readEnv('VITE_POWERAUTOMATE_FLOW_OCR_DOCUMENT'),
   },

@@ -2,7 +2,7 @@ import type { Employee, EquipmentItem, EvidenceDocument, PpeCatalogItem, PpeIssu
 import { documents, employees, equipmentCatalog, ppeCatalog, ppeIssues, projectStaff, sites, trainingTopics, trainings, vehicles } from '../data/mockData';
 import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
 import { integrationConfig } from './integrationConfig';
-import { createTrainingFlow, getEmployeesFlow, getPpeCatalogFlow, getProjectStaffFlow, getTrainingTopicsFlow, getVehicleDocumentsFlow, getVehiclesFlow, getSitesFlow, updateVehicleFlow } from './flowClient';
+import { createEmployeeFlow, createTrainingFlow, getEmployeeDocumentsFlow, getEmployeesFlow, getPpeCatalogFlow, getProjectStaffFlow, getTrainingTopicsFlow, getVehicleDocumentsFlow, getVehiclesFlow, getSitesFlow, updateVehicleFlow } from './flowClient';
 
 export interface IDataProvider {
   getSites(): Promise<Site[]>;
@@ -24,6 +24,7 @@ export interface IDataProvider {
   generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
   generateEquipmentAssignmentPdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
   uploadEvidence(file: File, folderPath: string): Promise<{ url: string; status?: string; fileName: string }>;
+  uploadEmployeeDocument(file: File, input: { employeeId: number; employeeName: string; documentType: string; issueDate?: string; expiryDate?: string; issuingAuthority?: string; mandatory?: boolean; aiWarnings?: string; notes?: string }): Promise<{ url: string; status?: string; fileName: string }>;
   extractDocumentText(file: File, options?: { documentType?: string; vehicleId?: number; vehiclePlate?: string }): Promise<{ text: string; confidence: number }>;
   captureSignature(payload: { signerName: string; documentId: string }): Promise<{ signatureUrl: string; status: 'pending' | 'completed' }>;
   generateQr(payload: string): Promise<{ qrUrl: string; payload: string }>;
@@ -163,13 +164,19 @@ export class MockDataProvider implements IDataProvider {
       fullName: `${employee.lastName} ${employee.firstName}`.trim(),
     };
 
-    const createdRemote = await this.sharePointAdapter.createListItem({
-      listName: integrationConfig.sharePointLists.employees,
-      item: {
-        ...employee,
-        FullName: created.fullName,
-      },
+    if (integrationConfig.enableRealIntegrations && !integrationConfig.powerAutomateFlows.createEmployee) {
+      throw new Error('Missing VITE_POWERAUTOMATE_FLOW_CREATE_EMPLOYEE. Employee was not saved to SharePoint.');
+    }
+
+    const createdRemote = await createEmployeeFlow({
+      ...employee,
+      fullName: created.fullName,
+      FullName: created.fullName,
     });
+
+    if (integrationConfig.enableRealIntegrations && createdRemote.status === 'mock-fallback') {
+      throw new Error('Create employee flow failed. Employee was not saved to SharePoint.');
+    }
 
     if (createdRemote.status !== 'mock-fallback' && createdRemote.id) {
       created.id = createdRemote.id;
@@ -238,17 +245,40 @@ export class MockDataProvider implements IDataProvider {
   }
 
   async getDocuments(entityType?: EvidenceDocument['entityType'], entityId?: number): Promise<EvidenceDocument[]> {
+    const flowDocuments: EvidenceDocument[] = [];
+
+    if (!entityType || entityType === 'employee') {
+      const employeeDocuments = await getEmployeeDocumentsFlow([]);
+      const filteredEmployeeDocuments = employeeDocuments.filter(d => d.entityType === 'employee' && (!entityId || d.entityId === entityId));
+
+      if (integrationConfig.enableRealIntegrations && integrationConfig.powerAutomateFlows.getEmployeeDocuments) {
+        if (entityType === 'employee') {
+          return filteredEmployeeDocuments;
+        }
+        flowDocuments.push(...filteredEmployeeDocuments);
+      } else if (filteredEmployeeDocuments.length > 0) {
+        flowDocuments.push(...filteredEmployeeDocuments);
+      }
+    }
+
     if (!entityType || entityType === 'vehicle') {
       const vehicleDocuments = this.attachVehicleDocumentEntities(await getVehicleDocumentsFlow([]));
       const filteredVehicleDocuments = vehicleDocuments.filter(d => d.entityType === 'vehicle' && (!entityId || d.entityId === entityId));
 
       if (integrationConfig.enableRealIntegrations && integrationConfig.powerAutomateFlows.getVehicleDocuments) {
+        if (!entityType && flowDocuments.length > 0) {
+          return [...flowDocuments, ...filteredVehicleDocuments];
+        }
         return filteredVehicleDocuments;
       }
 
       if (filteredVehicleDocuments.length > 0) {
-        return filteredVehicleDocuments;
+        flowDocuments.push(...filteredVehicleDocuments);
       }
+    }
+
+    if (!entityType && flowDocuments.length > 0) {
+      return flowDocuments;
     }
 
     const documentsFromSharePoint = await this.readSharePointList<EvidenceDocument>(integrationConfig.sharePointLists.medical, documents as EvidenceDocument[]);
@@ -299,6 +329,10 @@ export class MockDataProvider implements IDataProvider {
 
   async uploadEvidence(file: File, folderPath: string) {
     return this.flowAdapter.uploadEvidence(file, folderPath);
+  }
+
+  async uploadEmployeeDocument(file: File, input: { employeeId: number; employeeName: string; documentType: string; issueDate?: string; expiryDate?: string; issuingAuthority?: string; mandatory?: boolean; aiWarnings?: string; notes?: string }) {
+    return this.flowAdapter.uploadEmployeeDocument(file, input);
   }
 
   async extractDocumentText(file: File, options?: { documentType?: string; vehicleId?: number; vehiclePlate?: string }) {
