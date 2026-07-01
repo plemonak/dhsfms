@@ -114,6 +114,36 @@ export interface EquipmentItem {
   status: Status;
 }
 
+export type InspectionSeverity = 'Χαμηλή' | 'Μέτρια' | 'Υψηλή' | 'Κρίσιμη';
+
+export interface Inspection {
+  id: number;
+  title: string;
+  siteId: number;
+  inspectionDate: string;
+  inspectorId: number; // ProjectStaffMember id
+  latitude?: number;
+  longitude?: number;
+  overallHsFindings?: string;
+  overallEnvFindings?: string;
+  overallSeverity?: InspectionSeverity;
+  overallRecommendations?: string;
+  observations?: string;
+}
+
+export interface InspectionPhoto {
+  id: number;
+  inspectionId: number;
+  title: string;
+  photoUrl?: string;
+  inspectorPhotoComment?: string;
+  // AI_* πεδία γεμίζουν στη Φάση 4 (Gemini Vision) — προς το παρόν προαιρετικά/κενά
+  aiHsFindings?: string;
+  aiEnvFindings?: string;
+  aiSeverity?: InspectionSeverity;
+  aiRecommendations?: string;
+}
+
 export interface AppUser {
   displayName: string;
   email: string;
@@ -128,6 +158,8 @@ export type PageKey =
   | 'employee-form'
   | 'training'
   | 'jsa-signoff'
+  | 'inspections'
+  | 'inspection-form'
   | 'ppe'
   | 'medical'
   | 'licenses'

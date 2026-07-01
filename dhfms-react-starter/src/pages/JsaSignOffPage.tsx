@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Check } from 'lucide-react';
 import { PageHeader } from '../components/PageHeader';
 import { SectionCard } from '../components/SectionCard';
 import { SignaturePad } from '../components/SignaturePad';
@@ -18,8 +19,41 @@ import type { Employee, ProjectStaffMember, Site } from '../types/models';
 type WizardStep = 'setup' | 'mode' | 'signing' | 'scan-upload' | 'done';
 type SigningMode = 'digital' | 'scan';
 
+const STEP_ORDER: { key: WizardStep; label: string }[] = [
+  { key: 'setup', label: 'Στοιχεία' },
+  { key: 'mode', label: 'Τρόπος Υπογραφής' },
+  { key: 'signing', label: 'Υπογραφές' },
+  { key: 'done', label: 'Ολοκλήρωση' },
+];
+
+function StepIndicator({ current }: { current: WizardStep }) {
+  const effectiveCurrent = current === 'scan-upload' ? 'signing' : current;
+  const currentIndex = STEP_ORDER.findIndex((s) => s.key === effectiveCurrent);
+
+  return (
+    <div className="jsa-steps" role="list" aria-label="Πρόοδος διαδικασίας JSA">
+      {STEP_ORDER.map((step, index) => {
+        const state = index < currentIndex ? 'done' : index === currentIndex ? 'active' : 'pending';
+        return (
+          <div className={`jsa-step jsa-step-${state}`} key={step.key} role="listitem">
+            <span className="jsa-step-dot">{state === 'done' ? <Check size={13} /> : index + 1}</span>
+            <span className="jsa-step-label">{step.label}</span>
+            {index < STEP_ORDER.length - 1 && <span className="jsa-step-connector" aria-hidden="true" />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export function JsaSignOffPage() {
-  // ── Library data (Τύπος Έργου → Φάση → Task) ─────────────────
   const [libraryTasks, setLibraryTasks] = useState(jsaLibraryFallback);
   const projectOptions = useMemo(
     () => Array.from(new Set(libraryTasks.map((t) => t.project))).sort(),
@@ -38,7 +72,6 @@ export function JsaSignOffPage() {
     [tasksForProject, selectedTaskName]
   );
 
-  // ── Sites / Employees (φιλτραρισμένα ανά εργοτάξιο) ──────────
   const [sites, setSites] = useState<Site[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<number | ''>('');
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
@@ -51,11 +84,9 @@ export function JsaSignOffPage() {
 
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<number>>(new Set());
 
-  // ── Λοιπά στοιχεία JSA ────────────────────────────────────────
   const [workSite, setWorkSite] = useState('');
   const [executionDate, setExecutionDate] = useState(() => new Date().toISOString().slice(0, 10));
 
-  // ── Εκπαιδευτής (μόνο αυτός χρειάζεται email) ────────────────
   const [projectStaff, setProjectStaff] = useState<ProjectStaffMember[]>([]);
   const [trainerId, setTrainerId] = useState<number | ''>('');
   const [loadingStaff, setLoadingStaff] = useState(true);
@@ -65,19 +96,16 @@ export function JsaSignOffPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // ── Signing step state (digital mode) ────────────────────────
   const [signOff, setSignOff] = useState<CreateJsaSignOffResult | null>(null);
-  const [currentSignerIndex, setCurrentSignerIndex] = useState(0); // 0 = trainer, 1..n = employees
+  const [currentSignerIndex, setCurrentSignerIndex] = useState(0);
   const [submittingSignature, setSubmittingSignature] = useState(false);
   const [signatureError, setSignatureError] = useState<string | null>(null);
   const [allSigned, setAllSigned] = useState(false);
 
-  // ── Scan upload state ─────────────────────────────────────────
   const [scanFile, setScanFile] = useState<File | null>(null);
   const [uploadingScan, setUploadingScan] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
 
-  // ── Load reference data ──────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
 
@@ -101,7 +129,6 @@ export function JsaSignOffPage() {
     };
   }, []);
 
-  // Φόρτωση εργαζομένων όταν αλλάζει το επιλεγμένο εργοτάξιο
   useEffect(() => {
     if (selectedSiteId === '') {
       setAllEmployees([]);
@@ -120,7 +147,6 @@ export function JsaSignOffPage() {
     };
   }, [selectedSiteId]);
 
-  // Όταν αλλάζει ο τύπος έργου, καθάρισε την επιλογή task
   useEffect(() => {
     setSelectedTaskName('');
   }, [selectedProject]);
@@ -136,7 +162,6 @@ export function JsaSignOffPage() {
 
   const trainer = projectStaff.find((p) => p.id === trainerId);
   const trainerEmail = trainer?.email ?? '';
-  // Οι εργαζόμενοι ΔΕΝ χρειάζονται email — μόνο ο εκπαιδευτής.
   const validEmployees = employeesForSite.filter((e) => selectedEmployeeIds.has(e.id));
 
   const canStart =
@@ -160,9 +185,7 @@ export function JsaSignOffPage() {
         executionDate,
         trainerEmail: trainerEmail.trim(),
         trainerName: trainer.displayName ?? trainer.title ?? trainerEmail,
-        // Οι εργαζόμενοι περνάνε με employeeNo ως ταυτοποιητικό αντί για email
-        // (το flow τους αναγνωρίζει με βάση το όνομα· το πεδίο email μένει κενό).
-        employees: validEmployees.map((e) => ({ email: e.email ?? e.employeeNo, fullName: e.fullName })),
+        employees: validEmployees.map((e) => ({ employeeNo: e.employeeNo, fullName: e.fullName })),
       });
       setSignOff(result);
       setStep('mode');
@@ -185,11 +208,19 @@ export function JsaSignOffPage() {
   }
 
   const employeeList = validEmployees;
-  const totalSigners = 1 + employeeList.length; // trainer + employees
+  const totalSigners = 1 + employeeList.length;
   const isTrainerTurn = currentSignerIndex === 0;
   const currentEmployee = isTrainerTurn ? null : employeeList[currentSignerIndex - 1];
   const currentSignerName = isTrainerTurn ? (trainer?.displayName ?? trainer?.title ?? trainerEmail) : currentEmployee?.fullName ?? '';
-  const currentSignerEmail = isTrainerTurn ? trainerEmail : (currentEmployee?.email ?? currentEmployee?.employeeNo ?? '');
+  const currentSignerIdentifier = isTrainerTurn ? trainerEmail : (currentEmployee?.employeeNo ?? '');
+
+  const allSigners = useMemo(
+    () => [
+      { name: trainer?.displayName ?? trainer?.title ?? trainerEmail ?? 'Εκπαιδευτής', isTrainer: true },
+      ...employeeList.map((e) => ({ name: e.fullName, isTrainer: false })),
+    ],
+    [trainer, trainerEmail, employeeList]
+  );
 
   async function handleSignatureCaptured(payload: { signatureData: string }) {
     if (!signOff) return;
@@ -198,7 +229,7 @@ export function JsaSignOffPage() {
     try {
       const result = await submitJsaSignatureFlow({
         signOffTitle: signOff.signOffTitle,
-        signerEmail: currentSignerEmail,
+        signerEmail: currentSignerIdentifier,
         signerRole: isTrainerTurn ? 'trainer' : 'employee',
         signatureImageBase64: payload.signatureData,
       });
@@ -227,7 +258,6 @@ export function JsaSignOffPage() {
       const reader = new FileReader();
       reader.onload = () => {
         const result = reader.result as string;
-        // αφαιρούμε το data:...;base64, prefix, κρατάμε μόνο το payload
         const base64 = result.split(',')[1] ?? result;
         resolve(base64);
       };
@@ -275,13 +305,11 @@ export function JsaSignOffPage() {
     setSigningMode('digital');
   }
 
-  // ════════════════════════════════════════════════════════════
-  // RENDER — Setup step
-  // ════════════════════════════════════════════════════════════
   if (step === 'setup') {
     return (
       <div className="page">
         <PageHeader title="Εκπαίδευση JSA & Υπογραφές" subtitle="Επιλογή task από τη Βιβλιοθήκη, εκπαιδευτή και συμμετεχόντων" />
+        <StepIndicator current={step} />
 
         <SectionCard title="Επιλογή JSA από τη Βιβλιοθήκη">
           <div className="form-grid">
@@ -309,9 +337,11 @@ export function JsaSignOffPage() {
             </label>
           </div>
           {selectedTask && (
-            <div className="row-subtitle" style={{ marginTop: 10 }}>
-              Φάση: {selectedTask.phase} &nbsp;·&nbsp; Επίπεδο κινδύνου:{' '}
-              {selectedTask.risk === 'H' ? 'Υψηλό' : selectedTask.risk === 'M' ? 'Μέτριο' : 'Χαμηλό'}
+            <div className="jsa-task-meta">
+              <span className={`jsa-risk-pill jsa-risk-${selectedTask.risk}`}>
+                {selectedTask.risk === 'H' ? 'Υψηλό' : selectedTask.risk === 'M' ? 'Μέτριο' : 'Χαμηλό'} επίπεδο κινδύνου
+              </span>
+              <span className="row-subtitle">Φάση: {selectedTask.phase}</span>
             </div>
           )}
         </SectionCard>
@@ -353,7 +383,7 @@ export function JsaSignOffPage() {
                 ))}
               </select>
               {trainerId !== '' && !trainerEmail && (
-                <div className="row-subtitle" style={{ color: 'var(--dh-danger, #c0392b)', marginTop: 4 }}>
+                <div className="jsa-inline-warning">
                   Ο επιλεγμένος εκπαιδευτής δεν έχει καταχωρημένο email στο ProjectStaff. Απαιτείται για τον εκπαιδευτή.
                 </div>
               )}
@@ -382,17 +412,13 @@ export function JsaSignOffPage() {
             </div>
           )}
           {validEmployees.length > 0 && (
-            <div className="row-subtitle" style={{ marginTop: 10 }}>
-              Επιλέχθηκαν {validEmployees.length} εργαζόμενοι.
+            <div className="jsa-selection-summary">
+              Επιλέχθηκαν <strong>{validEmployees.length}</strong> εργαζόμενοι
             </div>
           )}
         </SectionCard>
 
-        {createError && (
-          <div className="card card-pad" style={{ borderColor: 'var(--dh-danger, #c0392b)', marginTop: 12 }}>
-            {createError}
-          </div>
-        )}
+        {createError && <div className="jsa-error-banner">{createError}</div>}
 
         <div className="footer-actions">
           <button className="primary-btn" type="button" disabled={!canStart} onClick={handleStartSignOff}>
@@ -403,13 +429,12 @@ export function JsaSignOffPage() {
     );
   }
 
-  // ════════════════════════════════════════════════════════════
-  // RENDER — Mode selection step (ψηφιακά ή σκαναρισμένα)
-  // ════════════════════════════════════════════════════════════
   if (step === 'mode' && signOff) {
     return (
       <div className="page">
         <PageHeader title="Τρόπος Υπογραφής" subtitle={signOff.signOffTitle} />
+        <StepIndicator current={step} />
+
         <SectionCard title="Επιλέξτε πώς θα γίνουν οι υπογραφές">
           <div className="mode-choice-grid">
             <button type="button" className="mode-choice-card" onClick={() => handleChooseMode('digital')}>
@@ -430,16 +455,23 @@ export function JsaSignOffPage() {
     );
   }
 
-  // ════════════════════════════════════════════════════════════
-  // RENDER — Digital signing step (σειριακά: trainer πρώτος, μετά κάθε employee)
-  // ════════════════════════════════════════════════════════════
   if (step === 'signing' && signOff) {
     return (
       <div className="page">
-        <PageHeader
-          title="Υπογραφές JSA"
-          subtitle={`${signOff.signOffTitle} — Υπογράφων ${currentSignerIndex + 1} από ${totalSigners}`}
-        />
+        <PageHeader title="Υπογραφές JSA" subtitle={signOff.signOffTitle} />
+        <StepIndicator current={step} />
+
+        <div className="jsa-signer-track" role="list" aria-label="Σειρά υπογραφόντων">
+          {allSigners.map((signer, index) => {
+            const state = index < currentSignerIndex ? 'done' : index === currentSignerIndex ? 'active' : 'pending';
+            return (
+              <div className={`jsa-signer-avatar jsa-signer-${state}`} key={`${signer.name}-${index}`} role="listitem" title={signer.name}>
+                <span className="jsa-signer-circle">{state === 'done' ? <Check size={15} /> : initialsOf(signer.name)}</span>
+                <span className="jsa-signer-name">{signer.isTrainer ? 'Εκπαιδευτής' : signer.name.split(' ')[0]}</span>
+              </div>
+            );
+          })}
+        </div>
 
         <SectionCard title="Δήλωση">
           {isTrainerTurn
@@ -447,11 +479,7 @@ export function JsaSignOffPage() {
             : 'Με την υπογραφή μου δηλώνω ότι ενημερώθηκα πλήρως για τους κινδύνους και τα μέτρα ελέγχου του παρόντος JSA και θα συμμορφώνομαι με τις απαιτήσεις ασφαλείας.'}
         </SectionCard>
 
-        {signatureError && (
-          <div className="card card-pad" style={{ borderColor: 'var(--dh-danger, #c0392b)', marginTop: 12 }}>
-            {signatureError}
-          </div>
-        )}
+        {signatureError && <div className="jsa-error-banner">{signatureError}</div>}
 
         <SignaturePad
           key={currentSignerIndex}
@@ -461,24 +489,15 @@ export function JsaSignOffPage() {
           documentId={signOff.signOffTitle}
           onSignatureCaptured={handleSignatureCaptured}
         />
-
-        <div className="card card-pad" style={{ marginTop: 12 }}>
-          <div className="section-title">Πρόοδος</div>
-          <div className="row-subtitle">
-            {isTrainerTurn ? 'Εκπαιδευτής (σε εξέλιξη)' : `Εργαζόμενος ${currentSignerIndex} από ${employeeList.length}`}
-          </div>
-        </div>
       </div>
     );
   }
 
-  // ════════════════════════════════════════════════════════════
-  // RENDER — Scan upload step
-  // ════════════════════════════════════════════════════════════
   if (step === 'scan-upload' && signOff) {
     return (
       <div className="page">
         <PageHeader title="Εκτύπωση & Σκανάρισμα" subtitle={signOff.signOffTitle} />
+        <StepIndicator current={step} />
 
         <SectionCard title="Βήμα 1 — Εκτύπωση Φόρμας">
           <div className="row-subtitle" style={{ marginBottom: 10 }}>
@@ -498,11 +517,7 @@ export function JsaSignOffPage() {
               onChange={(e) => setScanFile(e.target.files?.[0] ?? null)}
             />
           </div>
-          {scanError && (
-            <div className="card card-pad" style={{ borderColor: 'var(--dh-danger, #c0392b)', marginTop: 12 }}>
-              {scanError}
-            </div>
-          )}
+          {scanError && <div className="jsa-error-banner">{scanError}</div>}
           <div className="footer-actions">
             <button
               className="primary-btn"
@@ -518,18 +533,22 @@ export function JsaSignOffPage() {
     );
   }
 
-  // ════════════════════════════════════════════════════════════
-  // RENDER — Done step
-  // ════════════════════════════════════════════════════════════
   return (
     <div className="page">
       <PageHeader title="Ολοκληρώθηκε" subtitle={signOff?.signOffTitle} />
+      <StepIndicator current={step} />
+
       <SectionCard title="Επιτυχής Καταγραφή">
-        {signingMode === 'scan'
-          ? 'Η σκαναρισμένη φόρμα ανέβηκε επιτυχώς και αποθηκεύτηκε στο SharePoint.'
-          : allSigned
-          ? 'Όλες οι υπογραφές καταγράφηκαν. Το PDF δημιουργείται αυτόματα και θα είναι διαθέσιμο στο SharePoint σε λίγα δευτερόλεπτα.'
-          : 'Η υπογραφή καταγράφηκε. Αν χρειάζεται να συνεχίσετε με άλλους υπογράφοντες αργότερα, μπορείτε να επιστρέψετε σε αυτή τη σελίδα.'}
+        <div className="jsa-done-badge">
+          <Check size={20} />
+        </div>
+        <div className="row-subtitle" style={{ marginTop: 12 }}>
+          {signingMode === 'scan'
+            ? 'Η σκαναρισμένη φόρμα ανέβηκε επιτυχώς και αποθηκεύτηκε στο SharePoint.'
+            : allSigned
+            ? 'Όλες οι υπογραφές καταγράφηκαν. Το PDF δημιουργείται αυτόματα και θα είναι διαθέσιμο στο SharePoint σε λίγα δευτερόλεπτα.'
+            : 'Η υπογραφή καταγράφηκε. Αν χρειάζεται να συνεχίσετε με άλλους υπογράφοντες αργότερα, μπορείτε να επιστρέψετε σε αυτή τη σελίδα.'}
+        </div>
       </SectionCard>
       <div className="footer-actions">
         <button className="primary-btn" type="button" onClick={resetWizard}>

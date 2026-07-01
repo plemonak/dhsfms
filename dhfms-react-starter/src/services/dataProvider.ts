@@ -1,8 +1,22 @@
-import type { Employee, EquipmentItem, EvidenceDocument, PpeCatalogItem, PpeIssue, ProjectStaffMember, Site, TrainingSession, TrainingTopic, Vehicle } from '../types/models';
+import type { Employee, EquipmentItem, EvidenceDocument, Inspection, InspectionPhoto, PpeCatalogItem, PpeIssue, ProjectStaffMember, Site, TrainingSession, TrainingTopic, Vehicle } from '../types/models';
 import { documents, employees, equipmentCatalog, ppeCatalog, ppeIssues, projectStaff, sites, trainingTopics, trainings, vehicles } from '../data/mockData';
 import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
 import { integrationConfig } from './integrationConfig';
-import { createTrainingFlow, getEmployeesFlow, getPpeCatalogFlow, getProjectStaffFlow, getTrainingTopicsFlow, getVehicleDocumentsFlow, getVehiclesFlow, getSitesFlow, updateVehicleFlow } from './flowClient';
+import {
+  createInspectionFlow,
+  createInspectionPhotoFlow,
+  createTrainingFlow,
+  getEmployeesFlow,
+  getInspectionsFlow,
+  getPpeCatalogFlow,
+  getProjectStaffFlow,
+  getTrainingTopicsFlow,
+  getVehicleDocumentsFlow,
+  getVehiclesFlow,
+  getSitesFlow,
+  updateVehicleFlow,
+  uploadInspectionPhotoFlow,
+} from './flowClient';
 
 export interface IDataProvider {
   getSites(): Promise<Site[]>;
@@ -19,6 +33,10 @@ export interface IDataProvider {
   getTrainings(siteId?: number): Promise<TrainingSession[]>;
   getDocuments(entityType?: EvidenceDocument['entityType'], entityId?: number): Promise<EvidenceDocument[]>;
   getPpeIssues(employeeId?: number): Promise<PpeIssue[]>;
+  getInspections(siteId?: number): Promise<Inspection[]>;
+  createInspection(inspection: Omit<Inspection, 'id'>): Promise<Inspection>;
+  uploadInspectionPhoto(file: File, folderPath: string): Promise<{ url: string; fileName: string; status?: string }>;
+  addInspectionPhoto(photo: Omit<InspectionPhoto, 'id'>): Promise<InspectionPhoto>;
   createTrainingRecord(payload: Record<string, unknown>): Promise<{ id?: number; status: string }>;
   triggerTrainingPdf(input: { trainingSessionId: number; trainingTitle: string; trainerName: string; trainerSignature: string; participantsJson: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
   generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
@@ -33,6 +51,8 @@ export class MockDataProvider implements IDataProvider {
   private employeeStore = [...employees];
   private vehicleStore = [...vehicles];
   private trainingStore = [...trainings];
+  private inspectionStore: Inspection[] = [];
+  private inspectionPhotoStore: InspectionPhoto[] = [];
   private sharePointAdapter = new SharePointAdapter();
   private flowAdapter = new FlowAdapter();
   private ocrAdapter = new OcrAdapter();
@@ -259,6 +279,61 @@ export class MockDataProvider implements IDataProvider {
   async getPpeIssues(employeeId?: number): Promise<PpeIssue[]> {
     const ppeIssuesFromSharePoint = await this.readSharePointList<PpeIssue>(integrationConfig.sharePointLists.ppe, ppeIssues);
     return employeeId ? ppeIssuesFromSharePoint.filter(p => p.employeeId === employeeId) : ppeIssuesFromSharePoint;
+  }
+
+  async getInspections(siteId?: number): Promise<Inspection[]> {
+    const raw = await getInspectionsFlow([]);
+    const mapped: Inspection[] = raw.map((item) => ({
+      id: item.id,
+      title: item.title,
+      siteId: item.siteId,
+      inspectionDate: item.inspectionDate,
+      inspectorId: item.inspectorId,
+      latitude: item.latitude,
+      longitude: item.longitude,
+      overallHsFindings: item.overallHsFindings,
+      overallEnvFindings: item.overallEnvFindings,
+      overallSeverity: item.overallSeverity as Inspection['overallSeverity'],
+      overallRecommendations: item.overallRecommendations,
+      observations: item.observations,
+    }));
+
+    const resolved = mapped.length > 0 ? mapped : this.inspectionStore;
+    this.inspectionStore = resolved;
+    return siteId ? resolved.filter((i) => i.siteId === siteId) : resolved;
+  }
+
+  async createInspection(inspection: Omit<Inspection, 'id'>): Promise<Inspection> {
+    const created: Inspection = { ...inspection, id: Date.now() };
+
+    const createdRemote = await createInspectionFlow(inspection);
+    if (createdRemote.status !== 'mock-fallback' && createdRemote.id) {
+      created.id = createdRemote.id;
+    }
+
+    this.inspectionStore = [created, ...this.inspectionStore];
+    return created;
+  }
+
+  async uploadInspectionPhoto(file: File, folderPath: string) {
+    return uploadInspectionPhotoFlow(file, folderPath);
+  }
+
+  async addInspectionPhoto(photo: Omit<InspectionPhoto, 'id'>): Promise<InspectionPhoto> {
+    const created: InspectionPhoto = { ...photo, id: Date.now() };
+
+    const createdRemote = await createInspectionPhotoFlow({
+      inspectionId: photo.inspectionId,
+      title: photo.title,
+      photoUrl: photo.photoUrl ?? '',
+      inspectorPhotoComment: photo.inspectorPhotoComment,
+    });
+    if (createdRemote.status !== 'mock-fallback' && createdRemote.id) {
+      created.id = createdRemote.id;
+    }
+
+    this.inspectionPhotoStore = [created, ...this.inspectionPhotoStore];
+    return created;
   }
 
   async createTrainingRecord(payload: Record<string, unknown>) {

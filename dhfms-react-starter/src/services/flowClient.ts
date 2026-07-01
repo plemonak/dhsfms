@@ -35,7 +35,7 @@ export interface CreateJsaSignOffInput {
   executionDate?: string;
   trainerEmail: string;
   trainerName: string;
-  employees: Array<{ email: string; fullName: string }>;
+  employees: Array<{ employeeNo: string; fullName: string }>;
 }
 
 export interface CreateJsaSignOffResult {
@@ -731,4 +731,102 @@ export async function uploadJsaScannedFormFlow(input: UploadJsaScannedFormInput)
   );
 
   return result.data;
+}
+
+// ════════════════════════════════════════════════════════════
+// Inspections module (Φάση 1)
+// ════════════════════════════════════════════════════════════
+
+export interface CreateInspectionInput {
+  title: string;
+  siteId: number;
+  inspectionDate: string;
+  inspectorId: number;
+  latitude?: number;
+  longitude?: number;
+  observations?: string;
+}
+
+export interface CreateInspectionResult {
+  id?: number;
+  status: string;
+}
+
+export async function createInspectionFlow(input: CreateInspectionInput): Promise<CreateInspectionResult> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'createInspection',
+    integrationConfig.powerAutomateFlows.createInspection,
+    { ...input, flowType: 'create-inspection' },
+    { ...input, status: 'mock-fallback' }
+  );
+  const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
+  return { id: responseId, status: result.status };
+}
+
+export interface InspectionRaw {
+  id: number;
+  title: string;
+  siteId: number;
+  inspectionDate: string;
+  inspectorId: number;
+  latitude?: number;
+  longitude?: number;
+  overallHsFindings?: string;
+  overallEnvFindings?: string;
+  overallSeverity?: string;
+  overallRecommendations?: string;
+  observations?: string;
+}
+
+export async function getInspectionsFlow(fallback: InspectionRaw[]): Promise<InspectionRaw[]> {
+  const result = await invokeFlowData<InspectionRaw[]>(
+    'getInspections',
+    integrationConfig.powerAutomateFlows.getInspections,
+    { flowType: 'get-inspections' },
+    fallback
+  );
+  return result.data;
+}
+
+// Ξεχωριστή function από uploadEvidence() — ανεβάζει στο InspectionPhotoFiles,
+// ΟΧΙ στο VehicleDocuments (uploadEvidence έχει hardcoded listName στο FlowAdapter/backend flow).
+export async function uploadInspectionPhotoFlow(
+  file: File,
+  folderPath: string
+): Promise<{ url: string; fileName: string; status: string }> {
+  const fallbackUrl = URL.createObjectURL(file);
+  const payload = {
+    fileName: file.name,
+    folderPath,
+    siteUrl: integrationConfig.sharePointSiteUrl,
+    listName: integrationConfig.sharePointLists.inspectionPhotoFiles,
+    contentType: file.type || 'application/octet-stream',
+    fileContentBase64: await fileToBase64(file),
+    flowType: 'upload-inspection-photo',
+  };
+
+  const result = await invokeFlow(integrationConfig.powerAutomateFlows.uploadInspectionPhoto, payload, fallbackUrl);
+  return {
+    url: result.url ?? fallbackUrl,
+    fileName: file.name,
+    status: result.status,
+  };
+}
+
+export interface CreateInspectionPhotoInput {
+  inspectionId: number;
+  title: string;
+  photoUrl: string;
+  inspectorPhotoComment?: string;
+}
+
+export async function createInspectionPhotoFlow(input: CreateInspectionPhotoInput): Promise<{ id?: number; status: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'createInspectionPhoto',
+    integrationConfig.powerAutomateFlows.createInspectionPhoto,
+    { ...input, flowType: 'create-inspection-photo' },
+    { ...input, status: 'mock-fallback' }
+  );
+  const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
+  return { id: responseId, status: result.status };
 }
