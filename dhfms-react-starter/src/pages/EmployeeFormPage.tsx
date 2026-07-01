@@ -53,6 +53,15 @@ function normalizeIdentityNumber(value?: string): string {
   return (value ?? '').replace(/\s+/g, '').replace(/[^\p{L}\p{N}]/gu, '').toUpperCase();
 }
 
+function normalizeOcrLabel(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '')
+    .replace(/[^\p{L}\p{N}]/gu, '')
+    .toUpperCase();
+}
+
 export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positionOptions, companyOptions }: Props) {
   const [form, setForm] = useState<EmployeeFormState>({
     employeeNo: 'AUTO',
@@ -96,25 +105,59 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
 
   const update = (key: keyof EmployeeFormState, value: string | number) => setForm(prev => ({ ...prev, [key]: value }));
 
-  function applyOcrFields(text: string) {
+  function applyOcrFields(text: string): string[] {
     const normalizedText = text.replace(/\s+/g, ' ').trim();
+    const lines = text
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean);
 
-    const extract = (label: string) => {
-      const match = normalizedText.match(new RegExp(`${escapeRegex(label)}\\s*[:\-]\\s*(.+)`, 'i'));
-      return match ? normalizeValue(match[1].split(/\s{2,}/)[0]) : '';
+    const looksLikeLabel = (value: string) => [
+      'Επώνυμο', 'Surname', 'Lastname', 'Όνομα', 'Name', 'Firstname', 'Πατρώνυμο', 'Father',
+      'Ημερομηνία γέννησης', 'Birth date', 'Date of birth', 'Ημερομηνία λήξης', 'Expiry date',
+      'ΑΔΤ', 'Passport', 'Document No', 'ID', 'Φύλο', 'Gender', 'Ιθαγένεια', 'Nationality',
+      'Αρχή έκδοσης', 'Issued by', 'Authority',
+    ].some(label => normalizeOcrLabel(value).includes(normalizeOcrLabel(label)));
+
+    const extract = (...labels: string[]) => {
+      for (const label of labels) {
+        const directMatch = normalizedText.match(new RegExp(`${escapeRegex(label)}\\s*[:\\-]?\\s*([^·|]+?)(?=\\s{2,}|$)`, 'i'));
+        if (directMatch?.[1]) {
+          const value = normalizeValue(directMatch[1]);
+          if (value && !looksLikeLabel(value)) return value;
+        }
+
+        const normalizedLabel = normalizeOcrLabel(label);
+        for (let index = 0; index < lines.length; index += 1) {
+          const line = lines[index];
+          if (!normalizeOcrLabel(line).includes(normalizedLabel)) continue;
+
+          const inlineValue = normalizeValue(line.replace(new RegExp(escapeRegex(label), 'i'), '').replace(/^[:\-\s]+/, ''));
+          if (inlineValue && !looksLikeLabel(inlineValue)) {
+            return inlineValue;
+          }
+
+          const nextLine = normalizeValue(lines[index + 1]);
+          if (nextLine && !looksLikeLabel(nextLine)) {
+            return nextLine;
+          }
+        }
+      }
+
+      return '';
     };
 
-    const lastName = extract('Επώνυμο') || extract('Surname') || extract('Lastname');
-    const firstName = extract('Όνομα') || extract('Name') || extract('Firstname');
-    const fatherName = extract('Πατρώνυμο') || extract('Father') || extract('FatherName');
-    const birthDate = parseDateToIso(extract('Ημερομηνία γέννησης') || extract('Birth date') || extract('Date of birth')) ?? '';
-    const expiryDate = parseDateToIso(extract('Ημερομηνία λήξης') || extract('Λήξη') || extract('Expiry date') || extract('Date of expiry')) ?? '';
-    const explicitId = extract('ΑΔΤ / Αρ. Διαβατηρίου') || extract('ΑΔΤ') || extract('Passport') || extract('Passport No') || extract('Document No') || extract('ID');
+    const lastName = extract('Επώνυμο', 'Surname', 'Lastname', 'Last name');
+    const firstName = extract('Όνομα', 'Given names', 'First name', 'Firstname', 'Name');
+    const fatherName = extract('Πατρώνυμο', 'FatherName', 'Father name', 'Father');
+    const birthDate = parseDateToIso(extract('Ημερομηνία γέννησης', 'Birth date', 'Date of birth', 'DOB')) ?? '';
+    const expiryDate = parseDateToIso(extract('Ημερομηνία λήξης', 'Λήξη', 'Expiry date', 'Date of expiry', 'Valid until')) ?? '';
+    const explicitId = extract('ΑΔΤ / Αρ. Διαβατηρίου', 'Αριθμός ταυτότητας', 'ΑΔΤ', 'Passport No', 'Passport', 'Document No', 'ID number', 'ID');
     const identityMatch = normalizedText.match(/\b[A-ZΑ-Ω]{1,3}\s?\d{5,9}\b/u);
     const idOrTaxNo = normalizeIdentityNumber(explicitId || identityMatch?.[0]);
-    const gender = extract('Φύλο') || extract('Gender');
-    const nationality = extract('Ιθαγένεια') || extract('Nationality');
-    const issuingAuthority = extract('Αρχή έκδοσης') || extract('Issued by') || extract('Authority');
+    const gender = extract('Φύλο', 'Gender', 'Sex');
+    const nationality = extract('Ιθαγένεια', 'Nationality');
+    const issuingAuthority = extract('Αρχή έκδοσης', 'Issued by', 'Issuing authority', 'Authority');
 
     const extractedFields = [
       lastName ? `Επώνυμο: ${lastName}` : null,
@@ -142,6 +185,8 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
       nationality: nationality || prev.nationality,
       identityIssuingAuthority: issuingAuthority || prev.identityIssuingAuthority,
     }));
+
+    return extractedFields;
   }
 
   async function handleOcr(file: File | null) {
@@ -154,12 +199,12 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
 
     try {
       const result = await dataProvider.extractDocumentText(file, { documentType: form.identityDocumentType ?? 'IdentityDocument' });
-      applyOcrFields(result.text);
+      const extractedFields = applyOcrFields(result.text);
       setOcrStatus(result.text.trim().length === 0
         ? 'Το OCR ολοκληρώθηκε αλλά δεν επέστρεψε αναγνώσιμο κείμενο.'
-        : result.confidence > 0.2
+        : extractedFields.length > 0
           ? 'Το OCR ολοκληρώθηκε και τα πεδία συμπληρώθηκαν για έλεγχο.'
-          : 'Το OCR επέστρεψε κείμενο με χαμηλή βεβαιότητα. Ελέγξτε και συμπληρώστε τα πεδία πριν την αποθήκευση.');
+          : 'Το OCR επέστρεψε κείμενο, αλλά δεν αναγνωρίστηκαν πεδία αυτόματα. Συμπληρώστε τα χειροκίνητα.');
     } catch (error) {
       console.warn('OCR failed, using fallback.', error);
       applyOcrFields('Επώνυμο: Παπαδόπουλος\nΌνομα: Αντώνιος\nΠατρώνυμο: Νικόλαος\nΗμερομηνία γέννησης: 1988-03-12\nΑΔΤ / Αρ. Διαβατηρίου: AB123456\nΦύλο: Άνδρας\nΑρχή έκδοσης: Αστυνομία');
