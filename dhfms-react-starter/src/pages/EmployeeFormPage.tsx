@@ -155,7 +155,11 @@ export function EmployeeFormPage({ onBack, onSave, sites, selectedSiteId, positi
     try {
       const result = await dataProvider.extractDocumentText(file, { documentType: form.identityDocumentType ?? 'IdentityDocument' });
       applyOcrFields(result.text);
-      setOcrStatus(result.confidence > 0.2 ? 'Το OCR ολοκληρώθηκε και τα πεδία συμπληρώθηκαν για έλεγχο.' : 'Ενεργοποιήθηκε mock OCR fallback. Ελέγξτε τα πεδία πριν την αποθήκευση.');
+      setOcrStatus(result.text.trim().length === 0
+        ? 'Το OCR ολοκληρώθηκε αλλά δεν επέστρεψε αναγνώσιμο κείμενο.'
+        : result.confidence > 0.2
+          ? 'Το OCR ολοκληρώθηκε και τα πεδία συμπληρώθηκαν για έλεγχο.'
+          : 'Το OCR επέστρεψε κείμενο με χαμηλή βεβαιότητα. Ελέγξτε και συμπληρώστε τα πεδία πριν την αποθήκευση.');
     } catch (error) {
       console.warn('OCR failed, using fallback.', error);
       applyOcrFields('Επώνυμο: Παπαδόπουλος\nΌνομα: Αντώνιος\nΠατρώνυμο: Νικόλαος\nΗμερομηνία γέννησης: 1988-03-12\nΑΔΤ / Αρ. Διαβατηρίου: AB123456\nΦύλο: Άνδρας\nΑρχή έκδοσης: Αστυνομία');

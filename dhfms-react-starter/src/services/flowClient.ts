@@ -774,8 +774,43 @@ export async function ocrDocumentPlaceholder(input: {
     }
   );
 
+  function extractOcrText(value: unknown): string {
+    if (!value || typeof value !== 'object') {
+      return '';
+    }
+
+    const record = value as Record<string, unknown>;
+    if (typeof record.text === 'string') {
+      return record.text;
+    }
+
+    const annotation = record.fullTextAnnotation;
+    if (annotation && typeof annotation === 'object' && typeof (annotation as Record<string, unknown>).text === 'string') {
+      return String((annotation as Record<string, unknown>).text);
+    }
+
+    const responses = record.responses;
+    if (Array.isArray(responses)) {
+      for (const response of responses) {
+        const responseText = extractOcrText(response);
+        if (responseText) {
+          return responseText;
+        }
+      }
+    }
+
+    const body = record.body;
+    if (body && typeof body === 'object') {
+      return extractOcrText(body);
+    }
+
+    return '';
+  }
+
+  const text = extractOcrText(result.data);
+
   return {
-    text: typeof result.data.text === 'string' ? result.data.text : '',
+    text,
     confidence: typeof result.data.confidence === 'number' ? result.data.confidence : 0.1,
     status: typeof result.data.status === 'string' ? result.data.status : result.status,
     documentType: typeof result.data.documentType === 'string' ? result.data.documentType : input.documentType,
