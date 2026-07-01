@@ -245,16 +245,6 @@ export function EmployeeProfilePage({ employee, employees, trainings, documents,
               <div style={{ marginTop: 12 }}>
                 {ppeIssues.map(issue => <div className="row" key={issue.id}><div className="row-main"><div className="row-title">Χορήγηση ΜΑΠ #{issue.id}</div><div className="row-subtitle">{issue.issueDate} · Εκδόθηκε από {issue.issuedBy}</div></div><StatusBadge status={issue.status} /></div>)}
               </div>
-              <div style={{ marginTop: 14 }}>
-                <SignaturePad
-                  signer={employee.fullName}
-                  title="Υπογραφή χορήγησης ΜΑΠ"
-                  subtitle="Η υπογραφή αποθηκεύεται προσωρινά ως demo record για την επόμενη φάση PDF/upload."
-                  documentId={`ppe-${employee.id}`}
-                  onSignatureCaptured={({ signatureData }) => setPpeSignature(signatureData)}
-                />
-                {ppeSignature && <div className="row-subtitle" style={{ marginTop: 8 }}>Η υπογραφή ΜΑΠ αποθηκεύτηκε για το demo record.</div>}
-              </div>
             </>
           )}
           {activeTab === 'training' && (
