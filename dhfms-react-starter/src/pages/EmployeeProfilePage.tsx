@@ -327,6 +327,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   }
 
   async function cancelPpeAssignment(id: number) {
+    if (!window.confirm('Να ακυρωθεί αυτό το ΜΑΠ;')) return;
     setCancellingPpeAssignmentId(id);
     try {
       await dataProvider.cancelPpeAssignment(id, currentUser.displayName);
