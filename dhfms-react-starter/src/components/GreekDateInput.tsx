@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useRef } from 'react';
 
 interface Props {
   value: string;
@@ -13,39 +13,33 @@ function isoToDisplay(iso: string): string {
 }
 
 export function GreekDateInput({ value, onChange }: Props) {
-  const [text, setText] = useState(isoToDisplay(value));
+  const inputRef = useRef<HTMLInputElement>(null);
+  const display = isoToDisplay(value);
 
-  useEffect(() => {
-    setText(isoToDisplay(value));
-  }, [value]);
-
-  function handleChange(raw: string) {
-    const digits = raw.replace(/\D/g, '').slice(0, 8);
-    let formatted = digits;
-    if (digits.length > 4) formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-    else if (digits.length > 2) formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
-    setText(formatted);
-
-    if (digits.length === 8) {
-      const day = digits.slice(0, 2);
-      const month = digits.slice(2, 4);
-      const year = digits.slice(4, 8);
-      onChange(`${year}-${month}-${day}`);
-    } else if (digits.length === 0) {
-      onChange('');
+  function openPicker() {
+    const el = inputRef.current;
+    if (!el) return;
+    if (typeof el.showPicker === 'function') {
+      el.showPicker();
+    } else {
+      el.focus();
     }
   }
 
   return (
-    <input
+    <div
       className="field-input"
-      style={{ minHeight: 32, padding: '6px 10px' }}
-      type="text"
-      inputMode="numeric"
-      placeholder="ηη/μμ/εεεε"
-      value={text}
-      maxLength={10}
-      onChange={e => handleChange(e.target.value)}
-    />
+      style={{ minHeight: 32, padding: '6px 10px', position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+      onClick={openPicker}
+    >
+      <span style={{ color: display ? undefined : '#9aa1a8' }}>{display || 'ηη/μμ/εεεε'}</span>
+      <input
+        ref={inputRef}
+        type="date"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+      />
+    </div>
   );
 }

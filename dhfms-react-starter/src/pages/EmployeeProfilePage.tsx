@@ -105,6 +105,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [pendingPpeStatusChange, setPendingPpeStatusChange] = useState<{ id: number; status: PpeAssignment['status']; category: string } | null>(null);
   const [mandatoryReissueCategory, setMandatoryReissueCategory] = useState<string | null>(null);
   const reissueTargetKeyRef = useRef<string | null>(null);
+  const [reissueOnlyKey, setReissueOnlyKey] = useState<string | null>(null);
   const [equipmentWorkflowOpen, setEquipmentWorkflowOpen] = useState(false);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<number | null>(null);
   const [equipmentIssueDate, setEquipmentIssueDate] = useState(new Date().toISOString().slice(0, 10));
@@ -175,6 +176,8 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   })();
   const mandatoryPpeOptions = ppeCategoryOptions.filter(o => o.mandatory);
   const optionalPpeOptions = ppeCategoryOptions.filter(o => !o.mandatory);
+  const displayedMandatoryPpeOptions = reissueOnlyKey ? mandatoryPpeOptions.filter(o => o.key === reissueOnlyKey) : mandatoryPpeOptions;
+  const displayedOptionalPpeOptions = reissueOnlyKey ? [] : optionalPpeOptions;
   const selectedIssuer = projectStaff.find(person => person.id === selectedIssuerId);
   const selectedIssuerName = selectedIssuer?.displayName ?? selectedIssuer?.title ?? '';
 
@@ -314,6 +317,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     setPpeSignature(null);
     setPpeEmployeeSignature(null);
     setSelectedIssuerId(null);
+    setReissueOnlyKey(null);
     onPpeIssuesChanged();
     void refreshPpeAssignments();
   }
@@ -391,7 +395,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
         <div className="card-pad">
           {activeTab === 'ppe' && (
             <>
-              <button className="primary-btn" type="button" onClick={() => setPpeWorkflowOpen(prev => !prev)}><FilePlus2 size={17} />Νέα χορήγηση ΜΑΠ</button>
+              <button className="primary-btn" type="button" onClick={() => { setReissueOnlyKey(null); setPpeWorkflowOpen(prev => !prev); }}><FilePlus2 size={17} />Νέα χορήγηση ΜΑΠ</button>
               <button className="primary-btn" type="button" style={{ marginLeft: 8 }} onClick={() => setEquipmentWorkflowOpen(prev => !prev)}><FilePlus2 size={17} />+ Νέα Χρέωση Εξοπλισμού</button>
               {ppeWorkflowOpen && (
                 <div className="card card-pad" style={{ marginTop: 12 }}>
@@ -409,9 +413,9 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                       ))}
                     </select>
                   </div>
-                  <div className="section-title">Υποχρεωτικά ΜΑΠ (βάσει ειδικότητας)</div>
-                  {mandatoryPpeOptions.length === 0 && <div className="row-subtitle">Δεν βρέθηκαν υποχρεωτικά ΜΑΠ για την ειδικότητα «{employee.position}».</div>}
-                  {mandatoryPpeOptions.map(option => (
+                  <div className="section-title">{reissueOnlyKey ? 'Νέο ΜΑΠ προς χρέωση' : 'Υποχρεωτικά ΜΑΠ (βάσει ειδικότητας)'}</div>
+                  {displayedMandatoryPpeOptions.length === 0 && <div className="row-subtitle">Δεν βρέθηκαν υποχρεωτικά ΜΑΠ για την ειδικότητα «{employee.position}».</div>}
+                  {displayedMandatoryPpeOptions.map(option => (
                     <div key={option.key} className="card card-pad" style={{ marginTop: 8 }}>
                       <label className="training-chip" style={{ display: 'flex', alignItems: 'center' }}>
                         <input type="checkbox" checked={selectedPpeCategoryKeys.includes(option.key)} onChange={() => togglePpeCategory(option.key)} />
@@ -427,8 +431,8 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                       )}
                     </div>
                   ))}
-                  <div className="section-title" style={{ marginTop: 16 }}>Προαιρετικά ΜΑΠ</div>
-                  {optionalPpeOptions.map(option => (
+                  {!reissueOnlyKey && <div className="section-title" style={{ marginTop: 16 }}>Προαιρετικά ΜΑΠ</div>}
+                  {displayedOptionalPpeOptions.map(option => (
                     <div key={option.key} className="card card-pad" style={{ marginTop: 8 }}>
                       <label className="training-chip" style={{ display: 'flex', alignItems: 'center' }}>
                         <input type="checkbox" checked={selectedPpeCategoryKeys.includes(option.key)} onChange={() => togglePpeCategory(option.key)} />
@@ -522,7 +526,6 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                         }}
                       >
                         <option value="">Ενέργεια...</option>
-                        <option value="Replaced">Αντικατάσταση</option>
                         <option value="Lost">Απώλεια</option>
                         <option value="Damaged">Φθορά</option>
                         <option value="Returned">Επιστροφή</option>
@@ -721,6 +724,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
           const matchedKey = ppeCategoryOptions.find(o => normalizeText(o.category) === normalizeText(mandatoryReissueCategory ?? ''))?.key ?? null;
           reissueTargetKeyRef.current = matchedKey;
           setMandatoryReissueCategory(null);
+          setReissueOnlyKey(matchedKey);
           if (matchedKey) setSelectedPpeCategoryKeys([matchedKey]);
           setPpeWorkflowOpen(true);
         }}
