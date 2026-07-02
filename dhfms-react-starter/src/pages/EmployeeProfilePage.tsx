@@ -1,6 +1,6 @@
 import { ArrowLeft, FilePlus2, FileText, PenSquare } from 'lucide-react';
 import type { EquipmentItem, PpeAssignment, SpecialtyMatrixEntry, TrainingTopic } from '../types/models';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';
 import { GreekDateInput } from '../components/GreekDateInput';
@@ -104,6 +104,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [ppeToast, setPpeToast] = useState<string | null>(null);
   const [pendingPpeStatusChange, setPendingPpeStatusChange] = useState<{ id: number; status: PpeAssignment['status']; category: string } | null>(null);
   const [mandatoryReissueCategory, setMandatoryReissueCategory] = useState<string | null>(null);
+  const reissueTargetKeyRef = useRef<string | null>(null);
   const [equipmentWorkflowOpen, setEquipmentWorkflowOpen] = useState(false);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<number | null>(null);
   const [equipmentIssueDate, setEquipmentIssueDate] = useState(new Date().toISOString().slice(0, 10));
@@ -179,7 +180,12 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
 
   useEffect(() => {
     if (ppeWorkflowOpen) {
-      setSelectedPpeCategoryKeys(mandatoryPpeOptions.map(o => o.key));
+      if (reissueTargetKeyRef.current) {
+        setSelectedPpeCategoryKeys([reissueTargetKeyRef.current]);
+        reissueTargetKeyRef.current = null;
+      } else {
+        setSelectedPpeCategoryKeys(mandatoryPpeOptions.map(o => o.key));
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ppeWorkflowOpen, specialtyMatrix]);
@@ -712,7 +718,10 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
         cancelLabel="Όχι"
         onCancel={() => setMandatoryReissueCategory(null)}
         onConfirm={() => {
+          const matchedKey = ppeCategoryOptions.find(o => normalizeText(o.category) === normalizeText(mandatoryReissueCategory ?? ''))?.key ?? null;
+          reissueTargetKeyRef.current = matchedKey;
           setMandatoryReissueCategory(null);
+          if (matchedKey) setSelectedPpeCategoryKeys([matchedKey]);
           setPpeWorkflowOpen(true);
         }}
       />
