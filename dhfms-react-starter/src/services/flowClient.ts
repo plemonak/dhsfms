@@ -868,6 +868,26 @@ export async function createEmployeeLicenseFlow(input: CreateEmployeeLicenseInpu
   return { id: responseId, status: result.status };
 }
 
+export interface UpdateEmployeeLicenseInput {
+  licenseId: number;
+  licenseType: string;
+  licenseGrade?: string;
+  licenseSpecialty?: string[];
+  licenseNo?: string;
+  issueDate?: string;
+  expiryDate?: string;
+}
+
+export async function updateEmployeeLicenseFlow(input: UpdateEmployeeLicenseInput): Promise<{ status: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'updateEmployeeLicense',
+    integrationConfig.powerAutomateFlows.updateEmployeeLicense,
+    { ...input, flowType: 'update-employee-license' },
+    { ...input, status: 'mock-fallback' }
+  );
+  return { status: result.status };
+}
+
 export async function uploadLicenseEvidenceFlow(licenseId: number, employeeNo: string | undefined, employeeName: string | undefined, file: File): Promise<{ status: string }> {
   const result = await invokeFlowData<Record<string, unknown>>(
     'uploadLicenseEvidence',

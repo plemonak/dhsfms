@@ -101,6 +101,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [medicalCertificates, setMedicalCertificates] = useState<MedicalCertificate[]>([]);
   const [employeeLicenses, setEmployeeLicenses] = useState<EmployeeLicense[]>([]);
   const [licenseFormOpen, setLicenseFormOpen] = useState(false);
+  const [editingLicense, setEditingLicense] = useState<EmployeeLicense | null>(null);
   const [updatingPpeAssignmentId, setUpdatingPpeAssignmentId] = useState<number | null>(null);
   const [showInactivePpe, setShowInactivePpe] = useState(false);
   const [ppeToast, setPpeToast] = useState<string | null>(null);
@@ -717,7 +718,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
           )}
           {activeTab === 'licenses' && (
             <>
-              <button className="primary-btn" type="button" onClick={() => setLicenseFormOpen(prev => !prev)}><FilePlus2 size={17} />Προσθήκη Άδειας</button>
+              <button className="primary-btn" type="button" onClick={() => { setEditingLicense(null); setLicenseFormOpen(prev => !prev); }}><FilePlus2 size={17} />Προσθήκη Άδειας</button>
               {licenseFormOpen && (
                 <AddLicenseForm
                   employeeId={employee.id}
@@ -726,6 +727,19 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                   onCancel={() => setLicenseFormOpen(false)}
                   onSaved={() => {
                     setLicenseFormOpen(false);
+                    void dataProvider.getEmployeeLicenses(employee.id).then(setEmployeeLicenses);
+                  }}
+                />
+              )}
+              {editingLicense && (
+                <AddLicenseForm
+                  employeeId={employee.id}
+                  employeeNo={employee.employeeNo}
+                  employeeName={employee.fullName}
+                  existingLicense={editingLicense}
+                  onCancel={() => setEditingLicense(null)}
+                  onSaved={() => {
+                    setEditingLicense(null);
                     void dataProvider.getEmployeeLicenses(employee.id).then(setEmployeeLicenses);
                   }}
                 />
@@ -747,6 +761,9 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                         </div>
                       )}
                     </div>
+                    {license.licenseType === 'Άδεια Χειριστή Μηχανημάτων Έργου' && (
+                      <button className="secondary-btn" type="button" onClick={() => { setLicenseFormOpen(false); setEditingLicense(license); }}><PenSquare size={15} />Επεξεργασία</button>
+                    )}
                     <span className="badge">{license.status}</span>
                   </div>
                 ))}

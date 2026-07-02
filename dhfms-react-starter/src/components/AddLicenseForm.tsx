@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { EmployeeLicense } from '../types/models';
 import { dataProvider } from '../services/dataProvider';
 import { GreekDateInput } from './GreekDateInput';
 import {
@@ -15,17 +16,19 @@ interface Props {
   employeeId: number;
   employeeNo?: string;
   employeeName?: string;
+  existingLicense?: EmployeeLicense;
   onSaved: () => void;
   onCancel: () => void;
 }
 
-export function AddLicenseForm({ employeeId, employeeNo, employeeName, onSaved, onCancel }: Props) {
-  const [licenseType, setLicenseType] = useState('');
-  const [licenseGrade, setLicenseGrade] = useState('');
-  const [licenseSpecialty, setLicenseSpecialty] = useState<string[]>([]);
-  const [licenseNo, setLicenseNo] = useState('');
-  const [issueDate, setIssueDate] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
+export function AddLicenseForm({ employeeId, employeeNo, employeeName, existingLicense, onSaved, onCancel }: Props) {
+  const isEditing = Boolean(existingLicense);
+  const [licenseType, setLicenseType] = useState(existingLicense?.licenseType ?? '');
+  const [licenseGrade, setLicenseGrade] = useState(existingLicense?.licenseGrade ?? '');
+  const [licenseSpecialty, setLicenseSpecialty] = useState<string[]>(existingLicense?.licenseSpecialty ?? []);
+  const [licenseNo, setLicenseNo] = useState(existingLicense?.licenseNo ?? '');
+  const [issueDate, setIssueDate] = useState(existingLicense?.issueDate ?? '');
+  const [expiryDate, setExpiryDate] = useState(existingLicense?.expiryDate ?? '');
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -61,17 +64,29 @@ export function AddLicenseForm({ employeeId, employeeNo, employeeName, onSaved, 
   async function handleSave() {
     setSaving(true);
     try {
-      await dataProvider.createEmployeeLicense({
-        employeeId,
-        employeeNo,
-        employeeName,
-        licenseType,
-        licenseGrade: licenseGrade || undefined,
-        licenseSpecialty: licenseSpecialty.length > 0 ? licenseSpecialty : undefined,
-        licenseNo: licenseNo || undefined,
-        issueDate: issueDate || undefined,
-        expiryDate: expiryDate || undefined,
-      }, evidenceFile ?? undefined);
+      if (isEditing && existingLicense) {
+        await dataProvider.updateEmployeeLicense({
+          licenseId: existingLicense.id,
+          licenseType,
+          licenseGrade: licenseGrade || undefined,
+          licenseSpecialty: licenseSpecialty.length > 0 ? licenseSpecialty : undefined,
+          licenseNo: licenseNo || undefined,
+          issueDate: issueDate || undefined,
+          expiryDate: expiryDate || undefined,
+        }, employeeNo, employeeName, evidenceFile ?? undefined);
+      } else {
+        await dataProvider.createEmployeeLicense({
+          employeeId,
+          employeeNo,
+          employeeName,
+          licenseType,
+          licenseGrade: licenseGrade || undefined,
+          licenseSpecialty: licenseSpecialty.length > 0 ? licenseSpecialty : undefined,
+          licenseNo: licenseNo || undefined,
+          issueDate: issueDate || undefined,
+          expiryDate: expiryDate || undefined,
+        }, evidenceFile ?? undefined);
+      }
       onSaved();
     } finally {
       setSaving(false);
@@ -198,6 +213,11 @@ export function AddLicenseForm({ employeeId, employeeNo, employeeName, onSaved, 
             <label className="field-label">Ημερομηνία λήξης</label>
             <GreekDateInput value={expiryDate} onChange={setExpiryDate} />
           </div>
+          {isEditing && existingLicense?.evidenceUrl && (
+            <div className="row-subtitle" style={{ marginTop: 12 }}>
+              Τρέχον αρχείο: <a href={existingLicense.evidenceUrl} target="_blank" rel="noreferrer">Έγγραφο</a> (επίλεξε νέο αρχείο παρακάτω μόνο αν θες να το αντικαταστήσεις)
+            </div>
+          )}
           <div className="field" style={{ marginTop: 12 }}>
             <label className="field-label">Σκαναρισμένο αρχείο άδειας (PDF ή φωτογραφία, προαιρετικά)</label>
             <input
@@ -215,7 +235,7 @@ export function AddLicenseForm({ employeeId, employeeNo, employeeName, onSaved, 
       <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
         <button className="secondary-btn" type="button" onClick={onCancel}>Άκυρο</button>
         <button className="primary-btn" type="button" onClick={() => void handleSave()} disabled={!canSave() || saving}>
-          {saving ? 'Αποθήκευση...' : 'Αποθήκευση Άδειας'}
+          {saving ? 'Αποθήκευση...' : isEditing ? 'Αποθήκευση Αλλαγών' : 'Αποθήκευση Άδειας'}
         </button>
       </div>
     </div>

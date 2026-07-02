@@ -24,6 +24,7 @@ import {
   getVehicleDocumentsFlow,
   getVehiclesFlow,
   getSitesFlow,
+  updateEmployeeLicenseFlow,
   updatePpeAssignmentStatusFlow,
   uploadLicenseEvidenceFlow,
   updateVehicleFlow,
@@ -55,6 +56,7 @@ export interface IDataProvider {
   getMedicalCertificates(employeeId?: number): Promise<MedicalCertificate[]>;
   getEmployeeLicenses(employeeId?: number): Promise<EmployeeLicense[]>;
   createEmployeeLicense(input: { employeeId: number; employeeNo?: string; employeeName?: string; licenseType: string; licenseGrade?: string; licenseSpecialty?: string[]; licenseNo?: string; issueDate?: string; expiryDate?: string }, file?: File): Promise<EmployeeLicense>;
+  updateEmployeeLicense(input: { licenseId: number; licenseType: string; licenseGrade?: string; licenseSpecialty?: string[]; licenseNo?: string; issueDate?: string; expiryDate?: string }, employeeNo?: string, employeeName?: string, file?: File): Promise<EmployeeLicense>;
   getInspections(siteId?: number): Promise<Inspection[]>;
   createInspection(inspection: Omit<Inspection, 'id'>): Promise<Inspection>;
   uploadInspectionPhoto(file: File, folderPath: string): Promise<{ url: string; fileName: string; status?: string }>;
@@ -436,6 +438,31 @@ export class MockDataProvider implements IDataProvider {
 
     this.employeeLicenseStore = [created, ...this.employeeLicenseStore];
     return created;
+  }
+
+  async updateEmployeeLicense(input: { licenseId: number; licenseType: string; licenseGrade?: string; licenseSpecialty?: string[]; licenseNo?: string; issueDate?: string; expiryDate?: string }, employeeNo?: string, employeeName?: string, file?: File): Promise<EmployeeLicense> {
+    const existing = this.employeeLicenseStore.find(license => license.id === input.licenseId);
+    const updated: EmployeeLicense = {
+      id: input.licenseId,
+      employeeId: existing?.employeeId ?? 0,
+      licenseType: input.licenseType,
+      licenseGrade: input.licenseGrade,
+      licenseSpecialty: input.licenseSpecialty,
+      licenseNo: input.licenseNo,
+      issueDate: input.issueDate,
+      expiryDate: input.expiryDate,
+      evidenceUrl: existing?.evidenceUrl,
+      status: existing?.status ?? 'Active',
+    };
+
+    await updateEmployeeLicenseFlow(input);
+
+    if (file) {
+      await uploadLicenseEvidenceFlow(input.licenseId, employeeNo, employeeName, file);
+    }
+
+    this.employeeLicenseStore = this.employeeLicenseStore.map(license => license.id === input.licenseId ? updated : license);
+    return updated;
   }
 
   async createPpeAssignment(input: { issuanceId: number; ppeCategory: string; ppeModel?: string; quantity: number; expiryDate?: string }): Promise<PpeAssignment> {
