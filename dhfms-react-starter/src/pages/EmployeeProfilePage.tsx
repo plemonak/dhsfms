@@ -1,5 +1,5 @@
 import { ArrowLeft, FilePlus2, PenSquare } from 'lucide-react';
-import type { EquipmentItem, SpecialtyMatrixEntry, TrainingTopic } from '../types/models';
+import type { EquipmentItem, PpeAssignment, SpecialtyMatrixEntry, TrainingTopic } from '../types/models';
 import { useEffect, useState } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
@@ -28,6 +28,16 @@ interface Props {
 }
 
 const EVERYONE_SPECIALTY = 'όλοι';
+
+// Το SharePoint κρατάει σταθερές αγγλικές τιμές (για μελλοντική πολυγλωσσική υποστήριξη) —
+// εδώ γίνεται μόνο η μετάφραση εμφάνισης.
+const PPE_ASSIGNMENT_STATUS_LABELS: Record<PpeAssignment['status'], string> = {
+  Active: 'Ενεργό',
+  Replaced: 'Αντικαταστάθηκε',
+  Lost: 'Απώλεια',
+  Damaged: 'Φθορά',
+  Returned: 'Επιστράφηκε',
+};
 
 function escapeHtml(value: string): string {
   return value
@@ -73,11 +83,12 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [traineeSignedIds, setTraineeSignedIds] = useState<number[]>([]);
   const [ppeWorkflowOpen, setPpeWorkflowOpen] = useState(false);
   const [selectedPpeCategoryKeys, setSelectedPpeCategoryKeys] = useState<string[]>([]);
-  const [ppeItemDetails, setPpeItemDetails] = useState<Record<string, { model: string; size: string }>>({});
+  const [ppeItemDetails, setPpeItemDetails] = useState<Record<string, { model: string; size: string; expiryDate: string }>>({});
   const [ppePdfUrl, setPpePdfUrl] = useState<string | null>(null);
   const [ppeEmployeeSignature, setPpeEmployeeSignature] = useState<string | null>(null);
   const [selectedIssuerId, setSelectedIssuerId] = useState<number | null>(null);
   const [specialtyMatrix, setSpecialtyMatrix] = useState<SpecialtyMatrixEntry[]>([]);
+  const [ppeAssignments, setPpeAssignments] = useState<PpeAssignment[]>([]);
   const [selectedPpeIssueIds, setSelectedPpeIssueIds] = useState<number[]>([]);
   const [cancellingPpeIssues, setCancellingPpeIssues] = useState(false);
   const [equipmentWorkflowOpen, setEquipmentWorkflowOpen] = useState(false);
@@ -102,7 +113,12 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     void dataProvider.getTrainingTopics().then(setTrainingTopics);
     void dataProvider.getEquipmentCatalog(employee.siteId).then(setEquipmentCatalog);
     void dataProvider.getSpecialtyMatrix().then(setSpecialtyMatrix);
+    void dataProvider.getPpeAssignments(employee.id).then(setPpeAssignments);
   }, [employee.id, employee.siteId]);
+
+  async function refreshPpeAssignments() {
+    setPpeAssignments(await dataProvider.getPpeAssignments(employee.id));
+  }
 
   // Κανονικοποίηση Unicode (NFC) πριν τη σύγκριση — τα ελληνικά με τόνο μπορεί να έρθουν από το
   // SharePoint σε διαφορετική (αποσυντεθειμένη) μορφή που φαίνεται ίδια αλλά δεν ταιριάζει σε ===.
@@ -158,10 +174,15 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     setSelectedPpeCategoryKeys(current => current.includes(key) ? current.filter(entry => entry !== key) : [...current, key]);
   }
 
-  function updatePpeItemDetail(key: string, field: 'model' | 'size', value: string) {
+  function updatePpeItemDetail(key: string, field: 'model' | 'size' | 'expiryDate', value: string) {
     setPpeItemDetails(current => ({
       ...current,
-      [key]: { model: current[key]?.model ?? '', size: current[key]?.size ?? '', [field]: value },
+      [key]: {
+        model: current[key]?.model ?? '',
+        size: current[key]?.size ?? '',
+        expiryDate: current[key]?.expiryDate ?? '',
+        [field]: value,
+      },
     }));
   }
 
@@ -237,9 +258,21 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
       ppeItemsSummary,
     });
 
+    await Promise.all(selectedOptions.map(o => {
+      const detail = ppeItemDetails[o.key];
+      return dataProvider.createPpeAssignment({
+        issuanceId: createdIssue.id,
+        ppeCategory: o.category,
+        ppeModel: detail?.model || undefined,
+        quantity: 1,
+        expiryDate: detail?.expiryDate || undefined,
+      });
+    }));
+
     const result = await dataProvider.generatePpeIssuePdf({
       employeeId: employee.id,
       employeeName: employee.fullName,
+      employeeNo: employee.employeeNo,
       issueDate: new Date().toISOString().slice(0, 10),
       issuedBy: issuerName,
       siteName: employeeSite?.name ?? '-',
@@ -261,6 +294,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     setPpeEmployeeSignature(null);
     setSelectedIssuerId(null);
     onPpeIssuesChanged();
+    void refreshPpeAssignments();
   }
 
   async function cancelSelectedPpeIssues() {
@@ -364,6 +398,8 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                         <div className="form-grid" style={{ marginTop: 8 }}>
                           <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Μοντέλο (προαιρετικά)" value={ppeItemDetails[option.key]?.model ?? ''} onChange={e => updatePpeItemDetail(option.key, 'model', e.target.value)} />
                           <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Νούμερο/Μέγεθος (προαιρετικά)" value={ppeItemDetails[option.key]?.size ?? ''} onChange={e => updatePpeItemDetail(option.key, 'size', e.target.value)} />
+                          <label className="field-label" style={{ fontSize: 12 }}>Ημερομηνία λήξης</label>
+                          <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="date" value={ppeItemDetails[option.key]?.expiryDate ?? ''} onChange={e => updatePpeItemDetail(option.key, 'expiryDate', e.target.value)} />
                         </div>
                       )}
                     </div>
@@ -379,6 +415,8 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                         <div className="form-grid" style={{ marginTop: 8 }}>
                           <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Μοντέλο (προαιρετικά)" value={ppeItemDetails[option.key]?.model ?? ''} onChange={e => updatePpeItemDetail(option.key, 'model', e.target.value)} />
                           <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Νούμερο/Μέγεθος (προαιρετικά)" value={ppeItemDetails[option.key]?.size ?? ''} onChange={e => updatePpeItemDetail(option.key, 'size', e.target.value)} />
+                          <label className="field-label" style={{ fontSize: 12 }}>Ημερομηνία λήξης</label>
+                          <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="date" value={ppeItemDetails[option.key]?.expiryDate ?? ''} onChange={e => updatePpeItemDetail(option.key, 'expiryDate', e.target.value)} />
                         </div>
                       )}
                     </div>
@@ -454,6 +492,21 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                     {cancellingPpeIssues ? 'Ακύρωση...' : `Ακύρωση επιλεγμένων (${selectedPpeIssueIds.length})`}
                   </button>
                 )}
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <div className="section-title">ΜΑΠ σε χρήση</div>
+                {ppeAssignments.length === 0 && <div className="row-subtitle">Δεν υπάρχουν καταγεγραμμένα ΜΑΠ.</div>}
+                {ppeAssignments.map(assignment => (
+                  <div className="row" key={assignment.id}>
+                    <div className="row-main">
+                      <div className="row-title">{assignment.ppeCategory}{assignment.ppeModel ? ` · ${assignment.ppeModel}` : ''}</div>
+                      <div className="row-subtitle">
+                        {assignment.expiryDate ? `Λήξη: ${assignment.expiryDate}` : 'Χωρίς καταχωρημένη λήξη'}
+                      </div>
+                    </div>
+                    <span className={`badge ${assignment.status}`}>{PPE_ASSIGNMENT_STATUS_LABELS[assignment.status]}</span>
+                  </div>
+                ))}
               </div>
             </>
           )}

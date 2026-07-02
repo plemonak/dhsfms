@@ -13,6 +13,7 @@ export interface GenerateTrainingPdfInput {
 export interface GeneratePpeIssuePdfInput {
   employeeId: number;
   employeeName: string;
+  employeeNo?: string;
   issueDate: string;
   issuedBy: string;
   siteName?: string;

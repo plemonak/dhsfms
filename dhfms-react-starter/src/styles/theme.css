@@ -97,7 +97,9 @@ button { cursor: pointer; }
 .badge.Active, .badge.Completed { background: rgba(30,132,73,.09); color:#1E8449; border-color: rgba(30,132,73,.25); }
 .badge.Pending, .badge.Draft { background: rgba(212,172,13,.10); color:#9A7D0A; border-color: rgba(212,172,13,.28); }
 .badge.Expired, .badge.Missing { background: rgba(192,57,43,.10); color:#C0392B; border-color: rgba(192,57,43,.28); }
-.badge.Cancelled { background: rgba(93,109,126,.10); color:#5D6D7E; border-color: rgba(93,109,126,.28); }
+.badge.Cancelled, .badge.Returned { background: rgba(93,109,126,.10); color:#5D6D7E; border-color: rgba(93,109,126,.28); }
+.badge.Lost, .badge.Damaged { background: rgba(192,57,43,.10); color:#C0392B; border-color: rgba(192,57,43,.28); }
+.badge.Replaced { background: rgba(41,128,185,.10); color:#2980B9; border-color: rgba(41,128,185,.28); }
 .form { display: grid; gap: 14px; }
 .form-section { padding: 16px; }
 .form-section-title { font-weight: 850; color: var(--dh-navy); margin-bottom: 12px; }
