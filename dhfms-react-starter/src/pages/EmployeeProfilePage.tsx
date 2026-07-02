@@ -3,6 +3,7 @@ import type { EquipmentItem, PpeAssignment, SpecialtyMatrixEntry, TrainingTopic 
 import { useEffect, useState } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';
+import { GreekDateInput } from '../components/GreekDateInput';
 import { PageHeader } from '../components/PageHeader';
 import { SectionCard } from '../components/SectionCard';
 import { SignaturePad } from '../components/SignaturePad';
@@ -415,10 +416,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                           <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Μοντέλο (προαιρετικά)" value={ppeItemDetails[option.key]?.model ?? ''} onChange={e => updatePpeItemDetail(option.key, 'model', e.target.value)} />
                           <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Νούμερο/Μέγεθος (προαιρετικά)" value={ppeItemDetails[option.key]?.size ?? ''} onChange={e => updatePpeItemDetail(option.key, 'size', e.target.value)} />
                           <label className="field-label" style={{ fontSize: 12 }}>Ημερομηνία λήξης</label>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="date" value={ppeItemDetails[option.key]?.expiryDate ?? ''} onChange={e => updatePpeItemDetail(option.key, 'expiryDate', e.target.value)} />
-                            {ppeItemDetails[option.key]?.expiryDate && <span className="row-subtitle">{formatGreekDate(ppeItemDetails[option.key]?.expiryDate)}</span>}
-                          </div>
+                          <GreekDateInput value={ppeItemDetails[option.key]?.expiryDate ?? ''} onChange={value => updatePpeItemDetail(option.key, 'expiryDate', value)} />
                         </div>
                       )}
                     </div>
@@ -435,10 +433,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                           <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Μοντέλο (προαιρετικά)" value={ppeItemDetails[option.key]?.model ?? ''} onChange={e => updatePpeItemDetail(option.key, 'model', e.target.value)} />
                           <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Νούμερο/Μέγεθος (προαιρετικά)" value={ppeItemDetails[option.key]?.size ?? ''} onChange={e => updatePpeItemDetail(option.key, 'size', e.target.value)} />
                           <label className="field-label" style={{ fontSize: 12 }}>Ημερομηνία λήξης</label>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="date" value={ppeItemDetails[option.key]?.expiryDate ?? ''} onChange={e => updatePpeItemDetail(option.key, 'expiryDate', e.target.value)} />
-                            {ppeItemDetails[option.key]?.expiryDate && <span className="row-subtitle">{formatGreekDate(ppeItemDetails[option.key]?.expiryDate)}</span>}
-                          </div>
+                          <GreekDateInput value={ppeItemDetails[option.key]?.expiryDate ?? ''} onChange={value => updatePpeItemDetail(option.key, 'expiryDate', value)} />
                         </div>
                       )}
                     </div>
