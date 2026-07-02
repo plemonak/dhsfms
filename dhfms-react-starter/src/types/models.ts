@@ -106,6 +106,21 @@ export interface PpeIssue {
   cancelledDate?: string;
 }
 
+export type PpeAssignmentStatus = 'Active' | 'Replaced' | 'Lost' | 'Damaged' | 'Returned';
+
+export interface PpeAssignment {
+  id: number;
+  issuanceId: number;
+  ppeCategory: string;
+  ppeModel?: string;
+  quantity: number;
+  expiryDate?: string;
+  replacementDate?: string;
+  returnDate?: string;
+  equipmentId?: string;
+  status: PpeAssignmentStatus;
+}
+
 export interface PpeCatalogItem {
   id: number;
   ppeType: string;

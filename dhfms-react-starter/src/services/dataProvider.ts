@@ -1,4 +1,4 @@
-import type { Employee, EquipmentItem, EvidenceDocument, Inspection, InspectionPhoto, PpeCatalogItem, PpeIssue, ProjectStaffMember, SpecialtyMatrixEntry, Site, TrainingSession, TrainingTopic, Vehicle } from '../types/models';
+import type { Employee, EquipmentItem, EvidenceDocument, Inspection, InspectionPhoto, PpeAssignment, PpeCatalogItem, PpeIssue, ProjectStaffMember, SpecialtyMatrixEntry, Site, TrainingSession, TrainingTopic, Vehicle } from '../types/models';
 import { documents, employees, equipmentCatalog, ppeCatalog, ppeIssues, projectStaff, sites, trainingTopics, trainings, vehicles } from '../data/mockData';
 import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
 import { integrationConfig } from './integrationConfig';
@@ -7,11 +7,13 @@ import {
   createEmployeeFlow,
   createInspectionFlow,
   createInspectionPhotoFlow,
+  createPpeAssignmentFlow,
   createPpeIssueFlow,
   createTrainingFlow,
   getEmployeeDocumentsFlow,
   getEmployeesFlow,
   getInspectionsFlow,
+  getPpeAssignmentsFlow,
   getPpeCatalogFlow,
   getProjectStaffFlow,
   getSpecialtyMatrixFlow,
@@ -42,6 +44,8 @@ export interface IDataProvider {
   createPpeIssue(input: { employeeId: number; siteId: number; issuedById: number; issuedByName: string; ppeItemsSummary: string }): Promise<PpeIssue>;
   attachPpeIssuePdf(ppeIssueId: number, pdfUrl: string): Promise<void>;
   cancelPpeIssue(ppeIssueId: number, cancelledBy: string): Promise<void>;
+  getPpeAssignments(employeeId?: number): Promise<PpeAssignment[]>;
+  createPpeAssignment(input: { issuanceId: number; ppeCategory: string; ppeModel?: string; quantity: number; expiryDate?: string }): Promise<PpeAssignment>;
   getInspections(siteId?: number): Promise<Inspection[]>;
   createInspection(inspection: Omit<Inspection, 'id'>): Promise<Inspection>;
   uploadInspectionPhoto(file: File, folderPath: string): Promise<{ url: string; fileName: string; status?: string }>;
@@ -64,6 +68,7 @@ export class MockDataProvider implements IDataProvider {
   private inspectionStore: Inspection[] = [];
   private inspectionPhotoStore: InspectionPhoto[] = [];
   private ppeIssueStore = [...ppeIssues];
+  private ppeAssignmentStore: PpeAssignment[] = [];
   private sharePointAdapter = new SharePointAdapter();
   private flowAdapter = new FlowAdapter();
   private ocrAdapter = new OcrAdapter();
@@ -370,6 +375,34 @@ export class MockDataProvider implements IDataProvider {
     const cancelledDate = new Date().toISOString();
     await cancelPpeIssueFlow(ppeIssueId, cancelledBy, cancelledDate);
     this.ppeIssueStore = this.ppeIssueStore.map(issue => issue.id === ppeIssueId ? { ...issue, status: 'Cancelled', cancelledBy, cancelledDate } : issue);
+  }
+
+  async getPpeAssignments(employeeId?: number): Promise<PpeAssignment[]> {
+    const assignmentsFromSharePoint = await getPpeAssignmentsFlow(this.ppeAssignmentStore);
+    this.ppeAssignmentStore = assignmentsFromSharePoint.length > 0 ? assignmentsFromSharePoint : this.ppeAssignmentStore;
+    if (!employeeId) return this.ppeAssignmentStore;
+    const issuanceIds = new Set(this.ppeIssueStore.filter(issue => issue.employeeId === employeeId).map(issue => issue.id));
+    return this.ppeAssignmentStore.filter(assignment => issuanceIds.has(assignment.issuanceId));
+  }
+
+  async createPpeAssignment(input: { issuanceId: number; ppeCategory: string; ppeModel?: string; quantity: number; expiryDate?: string }): Promise<PpeAssignment> {
+    const created: PpeAssignment = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      issuanceId: input.issuanceId,
+      ppeCategory: input.ppeCategory,
+      ppeModel: input.ppeModel,
+      quantity: input.quantity,
+      expiryDate: input.expiryDate,
+      status: 'Active',
+    };
+
+    const createdRemote = await createPpeAssignmentFlow(input);
+    if (createdRemote.status !== 'mock-fallback' && createdRemote.id) {
+      created.id = createdRemote.id;
+    }
+
+    this.ppeAssignmentStore = [created, ...this.ppeAssignmentStore];
+    return created;
   }
 
   async getInspections(siteId?: number): Promise<Inspection[]> {

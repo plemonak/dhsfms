@@ -1,5 +1,5 @@
 import { integrationConfig, isFlowConfigured } from './integrationConfig';
-import type { Employee, EvidenceDocument, PpeCatalogItem, PpeIssue, ProjectStaffMember, SpecialtyMatrixEntry, Site, TrainingTopic, Vehicle } from '../types/models';
+import type { Employee, EvidenceDocument, PpeAssignment, PpeCatalogItem, PpeIssue, ProjectStaffMember, SpecialtyMatrixEntry, Site, TrainingTopic, Vehicle } from '../types/models';
 
 export interface GenerateTrainingPdfInput {
   trainingSessionId: number;
@@ -702,6 +702,62 @@ export async function getPpeIssuesFlow(fallback: PpeIssue[]): Promise<PpeIssue[]
     ppeItemsSummary: raw.ppeItemsSummary !== undefined || raw.PPEItemsSummary !== undefined ? String(raw.ppeItemsSummary ?? raw.PPEItemsSummary) : undefined,
     pdfUrl: raw.pdfUrl !== undefined || raw.SignedFormLinkLong !== undefined ? String(raw.pdfUrl ?? raw.SignedFormLinkLong) || undefined : undefined,
   }));
+}
+
+export async function getPpeAssignmentsFlow(fallback: PpeAssignment[]): Promise<PpeAssignment[]> {
+  const result = await invokeFlowData<Array<Record<string, unknown>>>(
+    'getPpeAssignments',
+    integrationConfig.powerAutomateFlows.getPpeAssignments,
+    { flowType: 'get-ppe-assignments' },
+    fallback as unknown as Array<Record<string, unknown>>
+  );
+
+  function toId(value: unknown): number {
+    if (value && typeof value === 'object') {
+      return Number((value as Record<string, unknown>).Id ?? 0);
+    }
+    return Number(value ?? 0);
+  }
+
+  function toText(value: unknown): string {
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      return String(record.Value ?? record.Title ?? '');
+    }
+    return String(value ?? '');
+  }
+
+  return result.data.map((raw) => ({
+    id: Number(raw.id ?? raw.ID ?? 0),
+    issuanceId: toId(raw.issuanceId ?? raw.IssuanceId ?? raw.Issuance),
+    ppeCategory: toText(raw.ppeCategory ?? raw.PPECategory),
+    ppeModel: raw.ppeModel !== undefined || raw.PPEModel !== undefined ? String(raw.ppeModel ?? raw.PPEModel) || undefined : undefined,
+    quantity: Number(raw.quantity ?? raw.Quantity ?? 1),
+    expiryDate: raw.expiryDate !== undefined || raw.ExpiryDate !== undefined ? String(raw.expiryDate ?? raw.ExpiryDate) || undefined : undefined,
+    replacementDate: raw.replacementDate !== undefined || raw.ReplacementDate !== undefined ? String(raw.replacementDate ?? raw.ReplacementDate) || undefined : undefined,
+    returnDate: raw.returnDate !== undefined || raw.ReturnDate !== undefined ? String(raw.returnDate ?? raw.ReturnDate) || undefined : undefined,
+    equipmentId: raw.equipmentId !== undefined || raw.EquipmentID !== undefined ? String(raw.equipmentId ?? raw.EquipmentID) || undefined : undefined,
+    status: (toText(raw.status ?? raw.Status) || 'Active') as PpeAssignment['status'],
+  }));
+}
+
+export interface CreatePpeAssignmentInput {
+  issuanceId: number;
+  ppeCategory: string;
+  ppeModel?: string;
+  quantity: number;
+  expiryDate?: string;
+}
+
+export async function createPpeAssignmentFlow(input: CreatePpeAssignmentInput): Promise<{ id?: number; status: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'createPpeAssignment',
+    integrationConfig.powerAutomateFlows.createPpeAssignment,
+    { ...input, status: 'Active', flowType: 'create-ppe-assignment' },
+    { ...input, status: 'mock-fallback' }
+  );
+  const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
+  return { id: responseId, status: result.status };
 }
 
 export async function getSpecialtyMatrixFlow(fallback: SpecialtyMatrixEntry[]): Promise<SpecialtyMatrixEntry[]> {
