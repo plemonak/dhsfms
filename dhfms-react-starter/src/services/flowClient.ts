@@ -658,11 +658,11 @@ export async function createPpeIssueFlow(payload: Record<string, unknown>): Prom
 
 // Δεν κάνουμε hard delete των χορηγήσεων ΜΑΠ (χρειάζεται audit trail για επιθεωρήσεις ασφαλείας) —
 // σημειώνουμε τη χορήγηση ως 'Cancelled' στο SharePoint.
-export async function cancelPpeIssueFlow(ppeIssueId: number): Promise<{ status: string }> {
+export async function cancelPpeIssueFlow(ppeIssueId: number, cancelledBy: string, cancelledDate: string): Promise<{ status: string }> {
   const result = await invokeFlowData<Record<string, unknown>>(
     'cancelPpeIssue',
     integrationConfig.powerAutomateFlows.cancelPpeIssue,
-    { ppeIssueId, flowType: 'cancel-ppe-issue' },
+    { ppeIssueId, cancelledBy, cancelledDate, flowType: 'cancel-ppe-issue' },
     { id: ppeIssueId, status: 'mock-fallback' }
   );
   return { status: result.status };

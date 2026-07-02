@@ -41,7 +41,7 @@ export interface IDataProvider {
   getSpecialtyMatrix(): Promise<SpecialtyMatrixEntry[]>;
   createPpeIssue(input: { employeeId: number; siteId: number; issuedById: number; issuedByName: string; ppeItemsSummary: string }): Promise<PpeIssue>;
   attachPpeIssuePdf(ppeIssueId: number, pdfUrl: string): Promise<void>;
-  cancelPpeIssue(ppeIssueId: number): Promise<void>;
+  cancelPpeIssue(ppeIssueId: number, cancelledBy: string): Promise<void>;
   getInspections(siteId?: number): Promise<Inspection[]>;
   createInspection(inspection: Omit<Inspection, 'id'>): Promise<Inspection>;
   uploadInspectionPhoto(file: File, folderPath: string): Promise<{ url: string; fileName: string; status?: string }>;
@@ -366,9 +366,10 @@ export class MockDataProvider implements IDataProvider {
     this.ppeIssueStore = this.ppeIssueStore.map(issue => issue.id === ppeIssueId ? { ...issue, pdfUrl } : issue);
   }
 
-  async cancelPpeIssue(ppeIssueId: number): Promise<void> {
-    await cancelPpeIssueFlow(ppeIssueId);
-    this.ppeIssueStore = this.ppeIssueStore.map(issue => issue.id === ppeIssueId ? { ...issue, status: 'Cancelled' } : issue);
+  async cancelPpeIssue(ppeIssueId: number, cancelledBy: string): Promise<void> {
+    const cancelledDate = new Date().toISOString();
+    await cancelPpeIssueFlow(ppeIssueId, cancelledBy, cancelledDate);
+    this.ppeIssueStore = this.ppeIssueStore.map(issue => issue.id === ppeIssueId ? { ...issue, status: 'Cancelled', cancelledBy, cancelledDate } : issue);
   }
 
   async getInspections(siteId?: number): Promise<Inspection[]> {

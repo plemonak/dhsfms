@@ -8,6 +8,7 @@ import { SignaturePad } from '../components/SignaturePad';
 import { StatusBadge } from '../components/StatusBadge';
 import { QrPreviewModal } from '../components/QrPreviewModal';
 import { dataProvider } from '../services/dataProvider';
+import { currentUser } from '../data/mockData';
 import type { Employee, EvidenceDocument, PpeIssue, Site, TrainingSession } from '../types/models';
 
 type TrainingWorkflowTab = 'new' | 'signatures' | 'history' | 'attendance';
@@ -266,7 +267,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     if (!selectedPpeIssueIds.length) return;
     setCancellingPpeIssues(true);
     try {
-      await Promise.all(selectedPpeIssueIds.map(id => dataProvider.cancelPpeIssue(id)));
+      await Promise.all(selectedPpeIssueIds.map(id => dataProvider.cancelPpeIssue(id, currentUser.displayName)));
       setSelectedPpeIssueIds([]);
       onPpeIssuesChanged();
     } finally {

@@ -102,6 +102,8 @@ export interface PpeIssue {
   status: Status;
   ppeItemsSummary?: string;
   pdfUrl?: string;
+  cancelledBy?: string;
+  cancelledDate?: string;
 }
 
 export interface PpeCatalogItem {
