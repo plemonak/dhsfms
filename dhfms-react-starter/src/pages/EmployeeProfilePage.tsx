@@ -1,4 +1,4 @@
-import { ArrowLeft, FilePlus2, PenSquare, Trash2 } from 'lucide-react';
+import { ArrowLeft, FilePlus2, FileText, PenSquare, Trash2 } from 'lucide-react';
 import type { EquipmentItem, PpeAssignment, SpecialtyMatrixEntry, TrainingTopic } from '../types/models';
 import { useEffect, useState } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -98,8 +98,6 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [selectedIssuerId, setSelectedIssuerId] = useState<number | null>(null);
   const [specialtyMatrix, setSpecialtyMatrix] = useState<SpecialtyMatrixEntry[]>([]);
   const [ppeAssignments, setPpeAssignments] = useState<PpeAssignment[]>([]);
-  const [selectedPpeIssueIds, setSelectedPpeIssueIds] = useState<number[]>([]);
-  const [cancellingPpeIssues, setCancellingPpeIssues] = useState(false);
   const [cancellingPpeAssignmentId, setCancellingPpeAssignmentId] = useState<number | null>(null);
   const [showCancelledPpe, setShowCancelledPpe] = useState(false);
   const [ppeToast, setPpeToast] = useState<string | null>(null);
@@ -312,22 +310,6 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     void refreshPpeAssignments();
   }
 
-  async function cancelSelectedPpeIssues() {
-    if (!selectedPpeIssueIds.length) return;
-    setCancellingPpeIssues(true);
-    try {
-      await Promise.all(selectedPpeIssueIds.map(id => dataProvider.cancelPpeIssue(id, currentUser.displayName)));
-      setSelectedPpeIssueIds([]);
-      onPpeIssuesChanged();
-    } finally {
-      setCancellingPpeIssues(false);
-    }
-  }
-
-  function togglePpeIssueSelection(id: number) {
-    setSelectedPpeIssueIds(current => current.includes(id) ? current.filter(entry => entry !== id) : [...current, id]);
-  }
-
   async function cancelPpeAssignment(id: number) {
     setCancellingPpeAssignmentId(id);
     try {
@@ -503,34 +485,6 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                 </div>
               )}
               <div style={{ marginTop: 12 }}>
-                <div className="section-title">Χορηγήσεις ΜΑΠ</div>
-                {ppeIssues.filter(issue => issue.status !== 'Cancelled').map(issue => (
-                  <div className="row" key={issue.id}>
-                    {issue.status !== 'Cancelled' && (
-                      <input
-                        type="checkbox"
-                        checked={selectedPpeIssueIds.includes(issue.id)}
-                        onChange={() => togglePpeIssueSelection(issue.id)}
-                      />
-                    )}
-                    <div className="row-main">
-                      <div className="row-title">Χορήγηση ΜΑΠ #{issue.id}</div>
-                      <div className="row-subtitle">
-                        {issue.issueDate} · Εκδόθηκε από {issue.issuedBy}
-                        {issue.ppeItemsSummary ? ` · ${issue.ppeItemsSummary}` : ''}
-                        {issue.pdfUrl && <> · <a href={issue.pdfUrl} target="_blank" rel="noreferrer">PDF</a></>}
-                      </div>
-                    </div>
-                    <StatusBadge status={issue.status} />
-                  </div>
-                ))}
-                {selectedPpeIssueIds.length > 0 && (
-                  <button className="danger-btn" type="button" style={{ marginTop: 8 }} onClick={() => void cancelSelectedPpeIssues()} disabled={cancellingPpeIssues}>
-                    {cancellingPpeIssues ? 'Ακύρωση...' : `Ακύρωση επιλεγμένων (${selectedPpeIssueIds.length})`}
-                  </button>
-                )}
-              </div>
-              <div style={{ marginTop: 12 }}>
                 <div className="section-title">ΜΑΠ σε χρήση</div>
                 {ppeToast && <div className="toast-banner">{ppeToast}</div>}
                 {visiblePpeAssignments.length === 0 && <div className="row-subtitle">Δεν υπάρχουν καταγεγραμμένα ΜΑΠ.</div>}
@@ -543,6 +497,14 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                       </div>
                     </div>
                     <span className={`badge ${assignment.status}`}>{PPE_ASSIGNMENT_STATUS_LABELS[assignment.status]}</span>
+                    {(() => {
+                      const relatedPdfUrl = ppeIssues.find(issue => issue.id === assignment.issuanceId)?.pdfUrl;
+                      return relatedPdfUrl ? (
+                        <a className="icon-btn" href={relatedPdfUrl} target="_blank" rel="noreferrer" title="Άνοιγμα φόρμας χρέωσης (PDF)">
+                          <FileText size={16} />
+                        </a>
+                      ) : null;
+                    })()}
                     {assignment.status !== 'Cancelled' && (
                       <button
                         className="icon-btn"
