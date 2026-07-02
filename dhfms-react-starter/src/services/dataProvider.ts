@@ -3,6 +3,7 @@ import { documents, employees, equipmentCatalog, ppeCatalog, ppeIssues, projectS
 import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
 import { integrationConfig } from './integrationConfig';
 import {
+  cancelPpeAssignmentFlow,
   cancelPpeIssueFlow,
   createEmployeeFlow,
   createInspectionFlow,
@@ -46,6 +47,7 @@ export interface IDataProvider {
   cancelPpeIssue(ppeIssueId: number, cancelledBy: string): Promise<void>;
   getPpeAssignments(employeeId?: number): Promise<PpeAssignment[]>;
   createPpeAssignment(input: { issuanceId: number; ppeCategory: string; ppeModel?: string; quantity: number; expiryDate?: string }): Promise<PpeAssignment>;
+  cancelPpeAssignment(ppeAssignmentId: number, cancelledBy: string): Promise<void>;
   getInspections(siteId?: number): Promise<Inspection[]>;
   createInspection(inspection: Omit<Inspection, 'id'>): Promise<Inspection>;
   uploadInspectionPhoto(file: File, folderPath: string): Promise<{ url: string; fileName: string; status?: string }>;
@@ -403,6 +405,14 @@ export class MockDataProvider implements IDataProvider {
 
     this.ppeAssignmentStore = [created, ...this.ppeAssignmentStore];
     return created;
+  }
+
+  async cancelPpeAssignment(ppeAssignmentId: number, cancelledBy: string): Promise<void> {
+    const cancelledDate = new Date().toISOString();
+    await cancelPpeAssignmentFlow(ppeAssignmentId, cancelledBy, cancelledDate);
+    this.ppeAssignmentStore = this.ppeAssignmentStore.map(assignment =>
+      assignment.id === ppeAssignmentId ? { ...assignment, status: 'Cancelled', cancelledBy, cancelledDate } : assignment
+    );
   }
 
   async getInspections(siteId?: number): Promise<Inspection[]> {

@@ -57,6 +57,7 @@ export const integrationConfig = {
     getSpecialtyMatrix: readEnv('VITE_POWERAUTOMATE_FLOW_GET_SPECIALTY_MATRIX'),
     getPpeAssignments: readEnv('VITE_POWERAUTOMATE_FLOW_GET_PPE_ASSIGNMENTS'),
     createPpeAssignment: readEnv('VITE_POWERAUTOMATE_FLOW_CREATE_PPE_ASSIGNMENT'),
+    cancelPpeAssignment: readEnv('VITE_POWERAUTOMATE_FLOW_CANCEL_PPE_ASSIGNMENT'),
     ppeIssuePdf: readEnv('VITE_POWERAUTOMATE_FLOW_PPE_ISSUE_PDF'),
     trainingAttendancePdf: readEnv('VITE_POWERAUTOMATE_FLOW_TRAINING_ATTENDANCE_PDF'),
     evidenceUpload: readEnv('VITE_POWERAUTOMATE_FLOW_UPLOAD_EVIDENCE'),

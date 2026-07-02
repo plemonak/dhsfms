@@ -761,6 +761,16 @@ export async function createPpeAssignmentFlow(input: CreatePpeAssignmentInput): 
   return { id: responseId, status: result.status };
 }
 
+export async function cancelPpeAssignmentFlow(ppeAssignmentId: number, cancelledBy: string, cancelledDate: string): Promise<{ status: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'cancelPpeAssignment',
+    integrationConfig.powerAutomateFlows.cancelPpeAssignment,
+    { ppeAssignmentId, cancelledBy, cancelledDate, flowType: 'cancel-ppe-assignment' },
+    { ppeAssignmentId, status: 'mock-fallback' }
+  );
+  return { status: result.status };
+}
+
 export async function getSpecialtyMatrixFlow(fallback: SpecialtyMatrixEntry[]): Promise<SpecialtyMatrixEntry[]> {
   const result = await invokeFlowData<Array<Record<string, unknown>>>(
     'getSpecialtyMatrix',

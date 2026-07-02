@@ -106,7 +106,7 @@ export interface PpeIssue {
   cancelledDate?: string;
 }
 
-export type PpeAssignmentStatus = 'Active' | 'Replaced' | 'Lost' | 'Damaged' | 'Returned';
+export type PpeAssignmentStatus = 'Active' | 'Replaced' | 'Lost' | 'Damaged' | 'Returned' | 'Cancelled';
 
 export interface PpeAssignment {
   id: number;
@@ -119,6 +119,8 @@ export interface PpeAssignment {
   returnDate?: string;
   equipmentId?: string;
   status: PpeAssignmentStatus;
+  cancelledBy?: string;
+  cancelledDate?: string;
 }
 
 export interface PpeCatalogItem {

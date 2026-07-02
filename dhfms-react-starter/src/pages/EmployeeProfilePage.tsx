@@ -37,6 +37,7 @@ const PPE_ASSIGNMENT_STATUS_LABELS: Record<PpeAssignment['status'], string> = {
   Lost: 'Απώλεια',
   Damaged: 'Φθορά',
   Returned: 'Επιστράφηκε',
+  Cancelled: 'Ακυρώθηκε',
 };
 
 function escapeHtml(value: string): string {
@@ -45,6 +46,13 @@ function escapeHtml(value: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function formatGreekDate(value?: string): string {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function buildPpeFileNamePrefix(): string {
@@ -91,6 +99,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [ppeAssignments, setPpeAssignments] = useState<PpeAssignment[]>([]);
   const [selectedPpeIssueIds, setSelectedPpeIssueIds] = useState<number[]>([]);
   const [cancellingPpeIssues, setCancellingPpeIssues] = useState(false);
+  const [cancellingPpeAssignmentId, setCancellingPpeAssignmentId] = useState<number | null>(null);
   const [equipmentWorkflowOpen, setEquipmentWorkflowOpen] = useState(false);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<number | null>(null);
   const [equipmentIssueDate, setEquipmentIssueDate] = useState(new Date().toISOString().slice(0, 10));
@@ -314,6 +323,16 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     setSelectedPpeIssueIds(current => current.includes(id) ? current.filter(entry => entry !== id) : [...current, id]);
   }
 
+  async function cancelPpeAssignment(id: number) {
+    setCancellingPpeAssignmentId(id);
+    try {
+      await dataProvider.cancelPpeAssignment(id, currentUser.displayName);
+      await refreshPpeAssignments();
+    } finally {
+      setCancellingPpeAssignmentId(null);
+    }
+  }
+
   async function saveEquipmentAssignment() {
     if (!employee || !selectedEquipmentId || !equipmentIssuerSignature || !employeeSignature) return;
     const result = await dataProvider.generateEquipmentAssignmentPdf({
@@ -400,7 +419,10 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                           <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Μοντέλο (προαιρετικά)" value={ppeItemDetails[option.key]?.model ?? ''} onChange={e => updatePpeItemDetail(option.key, 'model', e.target.value)} />
                           <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Νούμερο/Μέγεθος (προαιρετικά)" value={ppeItemDetails[option.key]?.size ?? ''} onChange={e => updatePpeItemDetail(option.key, 'size', e.target.value)} />
                           <label className="field-label" style={{ fontSize: 12 }}>Ημερομηνία λήξης</label>
-                          <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="date" value={ppeItemDetails[option.key]?.expiryDate ?? ''} onChange={e => updatePpeItemDetail(option.key, 'expiryDate', e.target.value)} />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="date" value={ppeItemDetails[option.key]?.expiryDate ?? ''} onChange={e => updatePpeItemDetail(option.key, 'expiryDate', e.target.value)} />
+                            {ppeItemDetails[option.key]?.expiryDate && <span className="row-subtitle">{formatGreekDate(ppeItemDetails[option.key]?.expiryDate)}</span>}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -417,7 +439,10 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                           <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Μοντέλο (προαιρετικά)" value={ppeItemDetails[option.key]?.model ?? ''} onChange={e => updatePpeItemDetail(option.key, 'model', e.target.value)} />
                           <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Νούμερο/Μέγεθος (προαιρετικά)" value={ppeItemDetails[option.key]?.size ?? ''} onChange={e => updatePpeItemDetail(option.key, 'size', e.target.value)} />
                           <label className="field-label" style={{ fontSize: 12 }}>Ημερομηνία λήξης</label>
-                          <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="date" value={ppeItemDetails[option.key]?.expiryDate ?? ''} onChange={e => updatePpeItemDetail(option.key, 'expiryDate', e.target.value)} />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="date" value={ppeItemDetails[option.key]?.expiryDate ?? ''} onChange={e => updatePpeItemDetail(option.key, 'expiryDate', e.target.value)} />
+                            {ppeItemDetails[option.key]?.expiryDate && <span className="row-subtitle">{formatGreekDate(ppeItemDetails[option.key]?.expiryDate)}</span>}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -496,16 +521,25 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
               </div>
               <div style={{ marginTop: 12 }}>
                 <div className="section-title">ΜΑΠ σε χρήση</div>
-                {ppeAssignments.length === 0 && <div className="row-subtitle">Δεν υπάρχουν καταγεγραμμένα ΜΑΠ.</div>}
-                {ppeAssignments.map(assignment => (
+                {ppeAssignments.filter(a => a.status !== 'Cancelled').length === 0 && <div className="row-subtitle">Δεν υπάρχουν καταγεγραμμένα ΜΑΠ.</div>}
+                {ppeAssignments.filter(a => a.status !== 'Cancelled').map(assignment => (
                   <div className="row" key={assignment.id}>
                     <div className="row-main">
                       <div className="row-title">{assignment.ppeCategory}{assignment.ppeModel ? ` · ${assignment.ppeModel}` : ''}</div>
                       <div className="row-subtitle">
-                        {assignment.expiryDate ? `Λήξη: ${assignment.expiryDate}` : 'Χωρίς καταχωρημένη λήξη'}
+                        {assignment.expiryDate ? `Λήξη: ${formatGreekDate(assignment.expiryDate)}` : 'Χωρίς καταχωρημένη λήξη'}
                       </div>
                     </div>
                     <span className={`badge ${assignment.status}`}>{PPE_ASSIGNMENT_STATUS_LABELS[assignment.status]}</span>
+                    <button
+                      className="danger-btn"
+                      type="button"
+                      style={{ marginLeft: 8 }}
+                      onClick={() => void cancelPpeAssignment(assignment.id)}
+                      disabled={cancellingPpeAssignmentId === assignment.id}
+                    >
+                      {cancellingPpeAssignmentId === assignment.id ? 'Ακύρωση...' : 'Ακύρωση'}
+                    </button>
                   </div>
                 ))}
               </div>
