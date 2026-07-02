@@ -13,25 +13,32 @@ function gitValue(command, fallback = 'unknown') {
   }
 }
 
-const localCommit = gitValue('git rev-parse --short HEAD');
+const repoRoot = new URL('..', import.meta.url);
 const branch = gitValue('git branch --show-current');
-let remoteCommit = 'unknown';
-
-try {
-  execSync('git fetch origin main --quiet', { cwd: new URL('..', import.meta.url), stdio: 'ignore' });
-  remoteCommit = gitValue('git rev-parse --short origin/main');
-} catch {
-  remoteCommit = 'unknown';
-}
+const beforePullCommit = gitValue('git rev-parse --short HEAD');
 
 console.log('');
 console.log('DYKAT HSEFMS dev server');
-console.log(`Commit: ${branch} ${localCommit}${remoteCommit !== 'unknown' ? ` (origin/main ${remoteCommit})` : ''}`);
-if (remoteCommit !== 'unknown' && localCommit !== remoteCommit) {
-  console.log('');
-  console.log('WARNING: This Codespace is not running the latest origin/main.');
-  console.log('Run: cd /workspaces/dhsfms && git pull');
+
+if (branch === 'main') {
+  try {
+    execSync('git pull --ff-only origin main', { cwd: repoRoot, stdio: ['ignore', 'pipe', 'pipe'] });
+    const afterPullCommit = gitValue('git rev-parse --short HEAD');
+    if (afterPullCommit !== beforePullCommit) {
+      console.log(`Ενημερώθηκε στην τελευταία έκδοση (${beforePullCommit} -> ${afterPullCommit}).`);
+    } else {
+      console.log(`Ήδη στην τελευταία έκδοση (${afterPullCommit}).`);
+    }
+  } catch (error) {
+    console.log('');
+    console.log('WARNING: Automatic git pull failed (πιθανό τοπικές αλλαγές ή conflict).');
+    console.log(String(error?.message ?? error).split('\n').slice(0, 4).join('\n'));
+    console.log('Run manually: git pull');
+  }
+} else {
+  console.log(`Branch: ${branch} (${beforePullCommit}) — automatic pull skipped (not main).`);
 }
+
 console.log(`Local: http://localhost:${port}/`);
 
 if (codespaceName) {

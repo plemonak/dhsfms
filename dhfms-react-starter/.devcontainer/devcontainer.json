@@ -5,5 +5,8 @@
       "label": "DYKAT HSEFMS React App",
       "onAutoForward": "openBrowser"
     }
+  },
+  "postAttachCommand": {
+    "server": "cd dhfms-react-starter && npm install && npm run dev"
   }
 }
