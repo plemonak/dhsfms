@@ -247,6 +247,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
       ppeItemsHtml,
       issuerSignatureBase64: ppeSignature,
       employeeSignatureBase64: ppeEmployeeSignature,
+      ppeIssueId: createdIssue.id,
     });
     if (result.pdfUrl && result.pdfUrl !== '#') {
       await dataProvider.attachPpeIssuePdf(createdIssue.id, result.pdfUrl);

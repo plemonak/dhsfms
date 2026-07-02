@@ -21,6 +21,7 @@ export interface GeneratePpeIssuePdfInput {
   ppeItemsHtml?: string;
   issuerSignatureBase64?: string;
   employeeSignatureBase64?: string;
+  ppeIssueId?: number;
 }
 
 export interface GenerateTrainingAttendancePdfInput {

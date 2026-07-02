@@ -48,7 +48,7 @@ export interface IDataProvider {
   addInspectionPhoto(photo: Omit<InspectionPhoto, 'id'>): Promise<InspectionPhoto>;
   createTrainingRecord(payload: Record<string, unknown>): Promise<{ id?: number; status: string }>;
   triggerTrainingPdf(input: { trainingSessionId: number; trainingTitle: string; trainerName: string; trainerSignature: string; participantsJson: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
-  generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string; ppeItemsSummary?: string; ppeItemsHtml?: string; issuerSignatureBase64?: string; employeeSignatureBase64?: string }): Promise<{ pdfUrl: string }>;
+  generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string; ppeItemsSummary?: string; ppeItemsHtml?: string; issuerSignatureBase64?: string; employeeSignatureBase64?: string; ppeIssueId?: number }): Promise<{ pdfUrl: string }>;
   generateEquipmentAssignmentPdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string }): Promise<{ pdfUrl: string }>;
   uploadEvidence(file: File, folderPath: string): Promise<{ url: string; status?: string; fileName: string }>;
   uploadEmployeeDocument(file: File, input: { employeeId: number; employeeName: string; documentType: string; issueDate?: string; expiryDate?: string; issuingAuthority?: string; mandatory?: boolean; aiWarnings?: string; notes?: string }): Promise<{ url: string; status?: string; fileName: string }>;
@@ -454,7 +454,7 @@ export class MockDataProvider implements IDataProvider {
     return this.flowAdapter.triggerTrainingPdf(input);
   }
 
-  async generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string; ppeItemsSummary?: string; ppeItemsHtml?: string; issuerSignatureBase64?: string; employeeSignatureBase64?: string }) {
+  async generatePpeIssuePdf(input: { employeeId: number; employeeName: string; issueDate: string; issuedBy: string; siteName?: string; pdfFileName: string; ppeItemsSummary?: string; ppeItemsHtml?: string; issuerSignatureBase64?: string; employeeSignatureBase64?: string; ppeIssueId?: number }) {
     return this.flowAdapter.generatePpeIssuePdf(input);
   }
 
