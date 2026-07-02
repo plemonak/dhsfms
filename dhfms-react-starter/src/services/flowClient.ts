@@ -1,5 +1,5 @@
 import { integrationConfig, isFlowConfigured } from './integrationConfig';
-import type { Employee, EvidenceDocument, PpeAssignment, PpeCatalogItem, PpeIssue, ProjectStaffMember, SpecialtyMatrixEntry, Site, TrainingTopic, Vehicle } from '../types/models';
+import type { Employee, EmployeeLicense, EvidenceDocument, MedicalCertificate, PpeAssignment, PpeCatalogItem, PpeIssue, ProjectStaffMember, SpecialtyMatrixEntry, Site, TrainingTopic, Vehicle } from '../types/models';
 
 export interface GenerateTrainingPdfInput {
   trainingSessionId: number;
@@ -769,6 +769,69 @@ export async function updatePpeAssignmentStatusFlow(ppeAssignmentId: number, new
     { ppeAssignmentId, status: 'mock-fallback' }
   );
   return { status: result.status };
+}
+
+function toLookupId(value: unknown): number {
+  if (value && typeof value === 'object') {
+    return Number((value as Record<string, unknown>).Id ?? 0);
+  }
+  return Number(value ?? 0);
+}
+
+function toChoiceText(value: unknown): string {
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return String(record.Value ?? record.Title ?? '');
+  }
+  return String(value ?? '');
+}
+
+export async function getMedicalCertificatesFlow(fallback: MedicalCertificate[]): Promise<MedicalCertificate[]> {
+  const result = await invokeFlowData<Array<Record<string, unknown>>>(
+    'getMedicalCertificates',
+    integrationConfig.powerAutomateFlows.getMedicalCertificates,
+    { flowType: 'get-medical-certificates' },
+    fallback as unknown as Array<Record<string, unknown>>
+  );
+  return result.data.map((raw) => ({
+    id: Number(raw.id ?? raw.ID ?? 0),
+    employeeId: toLookupId(raw.employeeId ?? raw.Employee),
+    certificateType: toChoiceText(raw.certificateType ?? raw.CertificateType),
+    issueDate: raw.issueDate !== undefined || raw.IssueDate !== undefined ? String(raw.issueDate ?? raw.IssueDate) || undefined : undefined,
+    expiryDate: raw.expiryDate !== undefined || raw.ExpiryDate !== undefined ? String(raw.expiryDate ?? raw.ExpiryDate) || undefined : undefined,
+    occupationalDoctor: raw.occupationalDoctor !== undefined || raw.OccupationalDoctor !== undefined ? String(raw.occupationalDoctor ?? raw.OccupationalDoctor) || undefined : undefined,
+    restrictions: raw.restrictions !== undefined || raw.Restrictions !== undefined ? String(raw.restrictions ?? raw.Restrictions) || undefined : undefined,
+    status: toChoiceText(raw.status ?? raw.Status) || 'Active',
+  }));
+}
+
+export async function getEmployeeLicensesFlow(fallback: EmployeeLicense[]): Promise<EmployeeLicense[]> {
+  const result = await invokeFlowData<Array<Record<string, unknown>>>(
+    'getEmployeeLicenses',
+    integrationConfig.powerAutomateFlows.getEmployeeLicenses,
+    { flowType: 'get-employee-licenses' },
+    fallback as unknown as Array<Record<string, unknown>>
+  );
+
+  function toHyperlinkUrl(value: unknown): string | undefined {
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      const url = record.Url ?? record.Description;
+      return typeof url === 'string' && url.length > 0 ? url : undefined;
+    }
+    return typeof value === 'string' && value.length > 0 ? value : undefined;
+  }
+
+  return result.data.map((raw) => ({
+    id: Number(raw.id ?? raw.ID ?? 0),
+    employeeId: toLookupId(raw.employeeId ?? raw.Employee),
+    licenseType: toChoiceText(raw.licenseType ?? raw.LicenseType),
+    licenseNo: raw.licenseNo !== undefined || raw.LicenseNo !== undefined ? String(raw.licenseNo ?? raw.LicenseNo) || undefined : undefined,
+    issueDate: raw.issueDate !== undefined || raw.IssueDate !== undefined ? String(raw.issueDate ?? raw.IssueDate) || undefined : undefined,
+    expiryDate: raw.expiryDate !== undefined || raw.ExpiryDate !== undefined ? String(raw.expiryDate ?? raw.ExpiryDate) || undefined : undefined,
+    evidenceUrl: toHyperlinkUrl(raw.evidence ?? raw.Evidence),
+    status: toChoiceText(raw.status ?? raw.Status) || 'Active',
+  }));
 }
 
 export async function getSpecialtyMatrixFlow(fallback: SpecialtyMatrixEntry[]): Promise<SpecialtyMatrixEntry[]> {

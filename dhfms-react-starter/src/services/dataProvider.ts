@@ -1,4 +1,4 @@
-import type { Employee, EquipmentItem, EvidenceDocument, Inspection, InspectionPhoto, PpeAssignment, PpeAssignmentStatus, PpeCatalogItem, PpeIssue, ProjectStaffMember, SpecialtyMatrixEntry, Site, TrainingSession, TrainingTopic, Vehicle } from '../types/models';
+import type { Employee, EmployeeLicense, EquipmentItem, EvidenceDocument, Inspection, InspectionPhoto, MedicalCertificate, PpeAssignment, PpeAssignmentStatus, PpeCatalogItem, PpeIssue, ProjectStaffMember, SpecialtyMatrixEntry, Site, TrainingSession, TrainingTopic, Vehicle } from '../types/models';
 import { documents, employees, equipmentCatalog, ppeCatalog, ppeIssues, projectStaff, sites, trainingTopics, trainings, vehicles } from '../data/mockData';
 import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
 import { integrationConfig } from './integrationConfig';
@@ -11,8 +11,10 @@ import {
   createPpeIssueFlow,
   createTrainingFlow,
   getEmployeeDocumentsFlow,
+  getEmployeeLicensesFlow,
   getEmployeesFlow,
   getInspectionsFlow,
+  getMedicalCertificatesFlow,
   getPpeAssignmentsFlow,
   getPpeCatalogFlow,
   getProjectStaffFlow,
@@ -48,6 +50,8 @@ export interface IDataProvider {
   getPpeAssignments(employeeId?: number): Promise<PpeAssignment[]>;
   createPpeAssignment(input: { issuanceId: number; ppeCategory: string; ppeModel?: string; quantity: number; expiryDate?: string }): Promise<PpeAssignment>;
   updatePpeAssignmentStatus(ppeAssignmentId: number, status: PpeAssignmentStatus, changedBy: string): Promise<void>;
+  getMedicalCertificates(employeeId?: number): Promise<MedicalCertificate[]>;
+  getEmployeeLicenses(employeeId?: number): Promise<EmployeeLicense[]>;
   getInspections(siteId?: number): Promise<Inspection[]>;
   createInspection(inspection: Omit<Inspection, 'id'>): Promise<Inspection>;
   uploadInspectionPhoto(file: File, folderPath: string): Promise<{ url: string; fileName: string; status?: string }>;
@@ -71,6 +75,8 @@ export class MockDataProvider implements IDataProvider {
   private inspectionPhotoStore: InspectionPhoto[] = [];
   private ppeIssueStore = [...ppeIssues];
   private ppeAssignmentStore: PpeAssignment[] = [];
+  private medicalCertificateStore: MedicalCertificate[] = [];
+  private employeeLicenseStore: EmployeeLicense[] = [];
   private sharePointAdapter = new SharePointAdapter();
   private flowAdapter = new FlowAdapter();
   private ocrAdapter = new OcrAdapter();
@@ -387,6 +393,20 @@ export class MockDataProvider implements IDataProvider {
     if (!employeeId) return this.ppeAssignmentStore;
     const issuanceIds = new Set(this.ppeIssueStore.filter(issue => issue.employeeId === employeeId).map(issue => issue.id));
     return this.ppeAssignmentStore.filter(assignment => issuanceIds.has(assignment.issuanceId));
+  }
+
+  async getMedicalCertificates(employeeId?: number): Promise<MedicalCertificate[]> {
+    const fromSharePoint = await getMedicalCertificatesFlow(this.medicalCertificateStore);
+    this.medicalCertificateStore = fromSharePoint.length > 0 ? fromSharePoint : this.medicalCertificateStore;
+    if (!employeeId) return this.medicalCertificateStore;
+    return this.medicalCertificateStore.filter(cert => cert.employeeId === employeeId);
+  }
+
+  async getEmployeeLicenses(employeeId?: number): Promise<EmployeeLicense[]> {
+    const fromSharePoint = await getEmployeeLicensesFlow(this.employeeLicenseStore);
+    this.employeeLicenseStore = fromSharePoint.length > 0 ? fromSharePoint : this.employeeLicenseStore;
+    if (!employeeId) return this.employeeLicenseStore;
+    return this.employeeLicenseStore.filter(license => license.employeeId === employeeId);
   }
 
   async createPpeAssignment(input: { issuanceId: number; ppeCategory: string; ppeModel?: string; quantity: number; expiryDate?: string }): Promise<PpeAssignment> {

@@ -37,6 +37,8 @@ export const integrationConfig = {
   powerAutomateFlows: {
     getEmployees: readEnv('VITE_POWERAUTOMATE_FLOW_GET_EMPLOYEES'),
     getEmployeeDocuments: readEnv('VITE_POWERAUTOMATE_FLOW_GET_EMPLOYEE_DOCUMENTS'),
+    getMedicalCertificates: readEnv('VITE_POWERAUTOMATE_FLOW_GET_MEDICAL_CERTIFICATES'),
+    getEmployeeLicenses: readEnv('VITE_POWERAUTOMATE_FLOW_GET_EMPLOYEE_LICENSES'),
     getVehicles: readEnv('VITE_POWERAUTOMATE_FLOW_GET_VEHICLES'),
     getVehicleDocuments: readEnv('VITE_POWERAUTOMATE_FLOW_GET_VEHICLE_DOCUMENTS'),
     getSites: readEnv('VITE_POWERAUTOMATE_FLOW_GET_SITES'),

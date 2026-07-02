@@ -1,5 +1,5 @@
 import { ArrowLeft, FilePlus2, FileText, PenSquare } from 'lucide-react';
-import type { EquipmentItem, PpeAssignment, SpecialtyMatrixEntry, TrainingTopic } from '../types/models';
+import type { EmployeeLicense, EquipmentItem, MedicalCertificate, PpeAssignment, SpecialtyMatrixEntry, TrainingTopic } from '../types/models';
 import { useEffect, useRef, useState } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';
@@ -69,8 +69,6 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   if (!employee) return <EmptyState title="Δεν βρέθηκε εργαζόμενος" />;
   const employeeSite = sites.find(site => site.id === employee.siteId);
   const employeeTrainings = trainings.filter(t => t.participantIds.includes(employee.id));
-  const medicalDocs = documents.filter(d => d.documentType.toLowerCase().includes('ιατρ') || d.documentType.toLowerCase().includes('fit'));
-  const licenseDocs = documents.filter(d => d.documentType.toLowerCase().includes('άδεια') || d.documentType.toLowerCase().includes('license'));
   const siteEmployees = employees.filter(candidate => candidate.siteId === employee.siteId);
   const [activeTrainingTab, setActiveTrainingTab] = useState<TrainingWorkflowTab>('new');
   const [topic, setTopic] = useState('Εισαγωγική Εκπαίδευση');
@@ -99,6 +97,8 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [selectedIssuerId, setSelectedIssuerId] = useState<number | null>(null);
   const [specialtyMatrix, setSpecialtyMatrix] = useState<SpecialtyMatrixEntry[]>([]);
   const [ppeAssignments, setPpeAssignments] = useState<PpeAssignment[]>([]);
+  const [medicalCertificates, setMedicalCertificates] = useState<MedicalCertificate[]>([]);
+  const [employeeLicenses, setEmployeeLicenses] = useState<EmployeeLicense[]>([]);
   const [updatingPpeAssignmentId, setUpdatingPpeAssignmentId] = useState<number | null>(null);
   const [showInactivePpe, setShowInactivePpe] = useState(false);
   const [ppeToast, setPpeToast] = useState<string | null>(null);
@@ -129,6 +129,8 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     void dataProvider.getEquipmentCatalog(employee.siteId).then(setEquipmentCatalog);
     void dataProvider.getSpecialtyMatrix().then(setSpecialtyMatrix);
     void dataProvider.getPpeAssignments(employee.id).then(setPpeAssignments);
+    void dataProvider.getMedicalCertificates(employee.id).then(setMedicalCertificates);
+    void dataProvider.getEmployeeLicenses(employee.id).then(setEmployeeLicenses);
   }, [employee.id, employee.siteId]);
 
   async function refreshPpeAssignments() {
@@ -679,8 +681,41 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
               )}
             </div>
           )}
-          {activeTab === 'medical' && medicalDocs.map(d => <div className="row" key={d.id}><div className="row-main"><div className="row-title">{d.documentType}</div><div className="row-subtitle">Λήξη: {d.expiryDate ?? '-'}</div></div><StatusBadge status={d.status} /></div>)}
-          {activeTab === 'licenses' && licenseDocs.map(d => <div className="row" key={d.id}><div className="row-main"><div className="row-title">{d.documentType}</div><div className="row-subtitle">Λήξη: {d.expiryDate ?? '-'}</div></div><StatusBadge status={d.status} /></div>)}
+          {activeTab === 'medical' && (
+            <>
+              {medicalCertificates.length === 0 && <EmptyState title="Δεν υπάρχουν καταγεγραμμένα ιατρικά πιστοποιητικά." />}
+              {medicalCertificates.map(cert => (
+                <div className="row" key={cert.id}>
+                  <div className="row-main">
+                    <div className="row-title">{cert.certificateType}</div>
+                    <div className="row-subtitle">
+                      {cert.occupationalDoctor ? `Ιατρός: ${cert.occupationalDoctor} · ` : ''}
+                      Λήξη: {cert.expiryDate ? formatGreekDate(cert.expiryDate) : '-'}
+                      {cert.restrictions ? ` · Περιορισμοί: ${cert.restrictions}` : ''}
+                    </div>
+                  </div>
+                  <span className="badge">{cert.status}</span>
+                </div>
+              ))}
+            </>
+          )}
+          {activeTab === 'licenses' && (
+            <>
+              {employeeLicenses.length === 0 && <EmptyState title="Δεν υπάρχουν καταγεγραμμένες άδειες." />}
+              {employeeLicenses.map(license => (
+                <div className="row" key={license.id}>
+                  <div className="row-main">
+                    <div className="row-title">{license.licenseType}{license.licenseNo ? ` · ${license.licenseNo}` : ''}</div>
+                    <div className="row-subtitle">
+                      Λήξη: {license.expiryDate ? formatGreekDate(license.expiryDate) : '-'}
+                      {license.evidenceUrl && <> · <a href={license.evidenceUrl} target="_blank" rel="noreferrer">Έγγραφο</a></>}
+                    </div>
+                  </div>
+                  <span className="badge">{license.status}</span>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       </div>
 

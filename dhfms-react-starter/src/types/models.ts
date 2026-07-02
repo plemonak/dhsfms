@@ -123,6 +123,28 @@ export interface PpeAssignment {
   cancelledDate?: string;
 }
 
+export interface MedicalCertificate {
+  id: number;
+  employeeId: number;
+  certificateType: string;
+  issueDate?: string;
+  expiryDate?: string;
+  occupationalDoctor?: string;
+  restrictions?: string;
+  status: string;
+}
+
+export interface EmployeeLicense {
+  id: number;
+  employeeId: number;
+  licenseType: string;
+  licenseNo?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  evidenceUrl?: string;
+  status: string;
+}
+
 export interface PpeCatalogItem {
   id: number;
   ppeType: string;
