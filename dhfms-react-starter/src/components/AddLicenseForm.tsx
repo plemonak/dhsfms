@@ -180,13 +180,20 @@ export function AddLicenseForm({ employeeId, onSaved, onCancel }: Props) {
       )}
 
       {licenseType && (
-        <div className="form-grid" style={{ marginTop: 12 }}>
-          <input className="field-input" type="text" placeholder="Αριθμός άδειας (προαιρετικά)" value={licenseNo} onChange={e => setLicenseNo(e.target.value)} />
-          <label className="field-label" style={{ fontSize: 12 }}>Ημερομηνία έκδοσης</label>
-          <GreekDateInput value={issueDate} onChange={setIssueDate} />
-          <label className="field-label" style={{ fontSize: 12 }}>Ημερομηνία λήξης</label>
-          <GreekDateInput value={expiryDate} onChange={setExpiryDate} />
-        </div>
+        <>
+          <div className="field" style={{ marginTop: 12 }}>
+            <label className="field-label">Αριθμός άδειας (προαιρετικά)</label>
+            <input className="field-input" type="text" placeholder="Αριθμός άδειας" value={licenseNo} onChange={e => setLicenseNo(e.target.value)} />
+          </div>
+          <div className="field" style={{ marginTop: 12 }}>
+            <label className="field-label">Ημερομηνία έκδοσης</label>
+            <GreekDateInput value={issueDate} onChange={setIssueDate} />
+          </div>
+          <div className="field" style={{ marginTop: 12 }}>
+            <label className="field-label">Ημερομηνία λήξης</label>
+            <GreekDateInput value={expiryDate} onChange={setExpiryDate} />
+          </div>
+        </>
       )}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
