@@ -8,6 +8,7 @@ import {
   createEmployeeLicenseFlow,
   createInspectionFlow,
   createInspectionPhotoFlow,
+  createMedicalCertificateFlow,
   createPpeAssignmentFlow,
   createPpeIssueFlow,
   createTrainingFlow,
@@ -27,6 +28,7 @@ import {
   updateEmployeeLicenseFlow,
   updatePpeAssignmentStatusFlow,
   uploadLicenseEvidenceFlow,
+  uploadMedicalEvidenceFlow,
   updateVehicleFlow,
   uploadInspectionPhotoFlow,
 } from './flowClient';
@@ -54,6 +56,7 @@ export interface IDataProvider {
   createPpeAssignment(input: { issuanceId: number; ppeCategory: string; ppeModel?: string; quantity: number; expiryDate?: string }): Promise<PpeAssignment>;
   updatePpeAssignmentStatus(ppeAssignmentId: number, status: PpeAssignmentStatus, changedBy: string): Promise<void>;
   getMedicalCertificates(employeeId?: number): Promise<MedicalCertificate[]>;
+  createMedicalCertificate(input: { employeeId: number; employeeNo?: string; employeeName?: string; certificateType: string; occupationalDoctor?: string; issueDate?: string; expiryDate?: string; restrictions?: string }, file?: File): Promise<MedicalCertificate>;
   getEmployeeLicenses(employeeId?: number): Promise<EmployeeLicense[]>;
   createEmployeeLicense(input: { employeeId: number; employeeNo?: string; employeeName?: string; licenseType: string; licenseGrade?: string; licenseSpecialty?: string[]; licenseNo?: string; issueDate?: string; expiryDate?: string }, file?: File): Promise<EmployeeLicense>;
   updateEmployeeLicense(input: { licenseId: number; licenseType: string; licenseGrade?: string; licenseSpecialty?: string[]; licenseNo?: string; issueDate?: string; expiryDate?: string }, employeeNo?: string, employeeName?: string, file?: File): Promise<EmployeeLicense>;
@@ -405,6 +408,31 @@ export class MockDataProvider implements IDataProvider {
     this.medicalCertificateStore = fromSharePoint.length > 0 ? fromSharePoint : this.medicalCertificateStore;
     if (!employeeId) return this.medicalCertificateStore;
     return this.medicalCertificateStore.filter(cert => cert.employeeId === employeeId);
+  }
+
+  async createMedicalCertificate(input: { employeeId: number; employeeNo?: string; employeeName?: string; certificateType: string; occupationalDoctor?: string; issueDate?: string; expiryDate?: string; restrictions?: string }, file?: File): Promise<MedicalCertificate> {
+    const created: MedicalCertificate = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      employeeId: input.employeeId,
+      certificateType: input.certificateType,
+      occupationalDoctor: input.occupationalDoctor,
+      issueDate: input.issueDate,
+      expiryDate: input.expiryDate,
+      restrictions: input.restrictions,
+      status: 'Active',
+    };
+
+    const createdRemote = await createMedicalCertificateFlow(input);
+    if (createdRemote.status !== 'mock-fallback' && createdRemote.id) {
+      created.id = createdRemote.id;
+    }
+
+    if (file && createdRemote.status !== 'mock-fallback' && createdRemote.id) {
+      await uploadMedicalEvidenceFlow(createdRemote.id, input.employeeNo, input.employeeName, file);
+    }
+
+    this.medicalCertificateStore = [created, ...this.medicalCertificateStore];
+    return created;
   }
 
   async getEmployeeLicenses(employeeId?: number): Promise<EmployeeLicense[]> {

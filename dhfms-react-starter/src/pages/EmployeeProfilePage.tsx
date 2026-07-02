@@ -2,6 +2,7 @@ import { ArrowLeft, FilePlus2, FileText, PenSquare } from 'lucide-react';
 import type { EmployeeLicense, EquipmentItem, MedicalCertificate, PpeAssignment, SpecialtyMatrixEntry, TrainingTopic } from '../types/models';
 import { useEffect, useRef, useState } from 'react';
 import { AddLicenseForm } from '../components/AddLicenseForm';
+import { AddMedicalCertificateForm } from '../components/AddMedicalCertificateForm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';
 import { GreekDateInput } from '../components/GreekDateInput';
@@ -100,6 +101,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [ppeAssignments, setPpeAssignments] = useState<PpeAssignment[]>([]);
   const [medicalCertificates, setMedicalCertificates] = useState<MedicalCertificate[]>([]);
   const [employeeLicenses, setEmployeeLicenses] = useState<EmployeeLicense[]>([]);
+  const [medicalFormOpen, setMedicalFormOpen] = useState(false);
   const [licenseFormOpen, setLicenseFormOpen] = useState(false);
   const [editingLicense, setEditingLicense] = useState<EmployeeLicense | null>(null);
   const [updatingPpeAssignmentId, setUpdatingPpeAssignmentId] = useState<number | null>(null);
@@ -700,20 +702,35 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
           )}
           {activeTab === 'medical' && (
             <>
-              {medicalCertificates.length === 0 && <EmptyState title="Δεν υπάρχουν καταγεγραμμένα ιατρικά πιστοποιητικά." />}
-              {medicalCertificates.map(cert => (
-                <div className="row" key={cert.id}>
-                  <div className="row-main">
-                    <div className="row-title">{cert.certificateType}</div>
-                    <div className="row-subtitle">
-                      {cert.occupationalDoctor ? `Ιατρός: ${cert.occupationalDoctor} · ` : ''}
-                      Λήξη: {cert.expiryDate ? formatGreekDate(cert.expiryDate) : '-'}
-                      {cert.restrictions ? ` · Περιορισμοί: ${cert.restrictions}` : ''}
+              <button className="primary-btn" type="button" onClick={() => setMedicalFormOpen(prev => !prev)}><FilePlus2 size={17} />Προσθήκη Πιστοποιητικού</button>
+              {medicalFormOpen && (
+                <AddMedicalCertificateForm
+                  employeeId={employee.id}
+                  employeeNo={employee.employeeNo}
+                  employeeName={employee.fullName}
+                  onCancel={() => setMedicalFormOpen(false)}
+                  onSaved={() => {
+                    setMedicalFormOpen(false);
+                    void dataProvider.getMedicalCertificates(employee.id).then(setMedicalCertificates);
+                  }}
+                />
+              )}
+              <div style={{ marginTop: 12 }}>
+                {medicalCertificates.length === 0 && <EmptyState title="Δεν υπάρχουν καταγεγραμμένα ιατρικά πιστοποιητικά." />}
+                {medicalCertificates.map(cert => (
+                  <div className="row" key={cert.id}>
+                    <div className="row-main">
+                      <div className="row-title">{cert.certificateType}</div>
+                      <div className="row-subtitle">
+                        {cert.occupationalDoctor ? `Ιατρός: ${cert.occupationalDoctor} · ` : ''}
+                        Λήξη: {cert.expiryDate ? formatGreekDate(cert.expiryDate) : '-'}
+                        {cert.restrictions ? ` · Περιορισμοί: ${cert.restrictions}` : ''}
+                      </div>
                     </div>
+                    <span className="badge">{cert.status}</span>
                   </div>
-                  <span className="badge">{cert.status}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </>
           )}
           {activeTab === 'licenses' && (

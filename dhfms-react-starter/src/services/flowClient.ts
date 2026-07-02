@@ -805,6 +805,46 @@ export async function getMedicalCertificatesFlow(fallback: MedicalCertificate[])
   }));
 }
 
+export interface CreateMedicalCertificateInput {
+  employeeId: number;
+  employeeNo?: string;
+  employeeName?: string;
+  certificateType: string;
+  occupationalDoctor?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  restrictions?: string;
+}
+
+export async function createMedicalCertificateFlow(input: CreateMedicalCertificateInput): Promise<{ id?: number; status: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'createMedicalCertificate',
+    integrationConfig.powerAutomateFlows.createMedicalCertificate,
+    { ...input, flowType: 'create-medical-certificate' },
+    { ...input, status: 'mock-fallback' }
+  );
+  const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
+  return { id: responseId, status: result.status };
+}
+
+export async function uploadMedicalEvidenceFlow(certificateId: number, employeeNo: string | undefined, employeeName: string | undefined, file: File): Promise<{ status: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'uploadMedicalEvidence',
+    integrationConfig.powerAutomateFlows.uploadMedicalEvidence,
+    {
+      certificateId,
+      employeeNo,
+      employeeName,
+      fileName: file.name,
+      contentType: file.type || 'application/octet-stream',
+      fileContentBase64: await fileToBase64(file),
+      flowType: 'upload-medical-evidence',
+    },
+    { certificateId, status: 'mock-fallback' }
+  );
+  return { status: result.status };
+}
+
 export async function getEmployeeLicensesFlow(fallback: EmployeeLicense[]): Promise<EmployeeLicense[]> {
   const result = await invokeFlowData<Array<Record<string, unknown>>>(
     'getEmployeeLicenses',
