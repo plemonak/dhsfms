@@ -5,7 +5,7 @@ import { PageHeader } from '../components/PageHeader';
 import { SectionCard } from '../components/SectionCard';
 import { SiteContextBar } from '../components/SiteContextBar';
 import { StatusBadge } from '../components/StatusBadge';
-import type { Employee, PageKey, Site, TrainingSession, Vehicle } from '../types/models';
+import type { Employee, PageKey, PpeAssignment, PpeIssue, Site, SpecialtyMatrixEntry, TrainingSession, Vehicle } from '../types/models';
 
 interface Props {
   site?: Site;
@@ -16,8 +16,17 @@ interface Props {
   trainings: TrainingSession[];
   totalEmployees: number;
   totalVehicles: number;
+  ppeIssues: PpeIssue[];
+  ppeAssignments: PpeAssignment[];
+  specialtyMatrix: SpecialtyMatrixEntry[];
   onNavigate: (page: PageKey) => void;
   onSiteChange: (siteId: number | 'all') => void;
+}
+
+const EVERYONE_SPECIALTY = 'όλοι';
+
+function normalizeText(value: string): string {
+  return value.normalize('NFC').trim().toLowerCase();
 }
 
 export function DashboardPage({
@@ -29,6 +38,9 @@ export function DashboardPage({
   trainings,
   totalEmployees,
   totalVehicles,
+  ppeIssues,
+  ppeAssignments,
+  specialtyMatrix,
   onNavigate,
   onSiteChange,
 }: Props) {
@@ -37,6 +49,38 @@ export function DashboardPage({
   const pendingTrainings = trainings.filter(t => t.status === 'Pending');
   const personnelCount = isAllSites ? totalEmployees : employees.length;
   const vehicleCount = isAllSites ? totalVehicles : vehicles.length;
+
+  // Ασυμφωνίες προτύπων EN: συγκρίνει το πρότυπο που ίσχυε τη στιγμή της χορήγησης (καταγεγραμμένο
+  // στο PpeAssignment) με το τρέχον πρότυπο του SpecialtyMatrix για την ειδικότητα/κατηγορία —
+  // αν διαφέρουν, το ήδη χορηγημένο ΜΑΠ θεωρείται εκτός συμμόρφωσης.
+  function currentStandardFor(employee: Employee, ppeCategory: string): string | undefined {
+    const specialties = [...employee.position.split(' / ').map(part => part.trim()).filter(Boolean), EVERYONE_SPECIALTY].map(normalizeText);
+    const categoryKey = normalizeText(ppeCategory);
+    let best: { standard?: string; specificity: number } | undefined;
+    for (const entry of specialtyMatrix) {
+      if (normalizeText(entry.ppeCategory) !== categoryKey) continue;
+      const specialtyKey = normalizeText(entry.specialty);
+      if (!specialties.includes(specialtyKey)) continue;
+      const specificity = specialtyKey === normalizeText(EVERYONE_SPECIALTY) ? 0 : 1;
+      if (!best || specificity > best.specificity) best = { standard: entry.standard, specificity };
+    }
+    return best?.standard;
+  }
+
+  const employeeIds = new Set(employees.map(e => e.id));
+  const issuanceToEmployeeId = new Map(ppeIssues.filter(issue => employeeIds.has(issue.employeeId)).map(issue => [issue.id, issue.employeeId]));
+
+  const standardMismatches = ppeAssignments
+    .filter(a => a.status === 'Active' && a.standardAtIssuance)
+    .map(a => {
+      const employeeId = issuanceToEmployeeId.get(a.issuanceId);
+      const employee = employeeId !== undefined ? employees.find(e => e.id === employeeId) : undefined;
+      if (!employee) return null;
+      const currentStandard = currentStandardFor(employee, a.ppeCategory);
+      if (!currentStandard || currentStandard === a.standardAtIssuance) return null;
+      return { assignment: a, employee, currentStandard };
+    })
+    .filter((entry): entry is { assignment: PpeAssignment; employee: Employee; currentStandard: string } => entry !== null);
 
   return (
     <div className="page">
@@ -48,6 +92,7 @@ export function DashboardPage({
         <MetricCard label={`Οχήματα & ΜΕ ${scopeText}`} value={vehicleCount} />
         {isAllSites && <MetricCard label="Εργοτάξια" value={sites.length} />}
         <MetricCard label={`Εκκρεμείς υπογραφές ${scopeText}`} value={pendingTrainings.length} alert={pendingTrainings.length > 0} />
+        <MetricCard label="Ασυμφωνίες προτύπων ΜΑΠ (EN)" value={standardMismatches.length} alert={standardMismatches.length > 0} />
       </div>
 
       <div className="section-title">Ενότητες</div>
@@ -73,6 +118,21 @@ export function DashboardPage({
               <div className="row-subtitle">{training.trainerName} · {training.date}</div>
             </div>
             <StatusBadge status={training.status} />
+          </div>
+        ))}
+      </SectionCard>
+
+      <div className="section-title">Ασυμφωνίες Προτύπων ΜΑΠ (EN)</div>
+      <SectionCard>
+        {standardMismatches.length === 0 && <div>Δεν υπάρχουν ασυμφωνίες — όλα τα ενεργά ΜΑΠ πληρούν το τρέχον πρότυπο.</div>}
+        {standardMismatches.map(({ assignment, employee, currentStandard }) => (
+          <div key={assignment.id} className="row clickable" onClick={() => onNavigate('employees')}>
+            <div className="avatar"><ShieldAlert size={18} /></div>
+            <div className="row-main">
+              <div className="row-title">{employee.fullName} · {assignment.ppeCategory}</div>
+              <div className="row-subtitle">Χορηγήθηκε με {assignment.standardAtIssuance}, το τρέχον πρότυπο είναι {currentStandard}</div>
+            </div>
+            <span className="badge Expired">Ασυμμόρφωση</span>
           </div>
         ))}
       </SectionCard>

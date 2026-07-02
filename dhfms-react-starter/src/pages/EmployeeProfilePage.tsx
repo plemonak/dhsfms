@@ -299,6 +299,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
         ppeModel: detail?.model || undefined,
         quantity: 1,
         expiryDate: detail?.expiryDate || undefined,
+        standardAtIssuance: o.standard,
       });
     }));
 

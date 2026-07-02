@@ -16,7 +16,7 @@ import { VehicleFormPage } from './pages/VehicleFormPage';
 import type { InitialVehicleDocumentDraft, VehicleFormDraft } from './pages/VehicleFormPage';
 import { VehicleProfilePage } from './pages/VehicleProfilePage';
 import { dataProvider } from './services/dataProvider';
-import type { Employee, EvidenceDocument, PageKey, PpeIssue, Site, TrainingSession, Vehicle } from './types/models';
+import type { Employee, EvidenceDocument, PageKey, PpeAssignment, PpeIssue, SpecialtyMatrixEntry, Site, TrainingSession, Vehicle } from './types/models';
 
 export default function App() {
   const [page, setPage] = useState<PageKey>('dashboard');
@@ -26,6 +26,8 @@ export default function App() {
   const [trainings, setTrainings] = useState<TrainingSession[]>([]);
   const [documents, setDocuments] = useState<EvidenceDocument[]>([]);
   const [ppeIssues, setPpeIssues] = useState<PpeIssue[]>([]);
+  const [ppeAssignments, setPpeAssignments] = useState<PpeAssignment[]>([]);
+  const [specialtyMatrix, setSpecialtyMatrix] = useState<SpecialtyMatrixEntry[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | undefined>(1);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | undefined>();
   const [profileTab, setProfileTab] = useState<'overview' | 'ppe' | 'training' | 'medical' | 'licenses'>('overview');
@@ -39,6 +41,8 @@ export default function App() {
       setTrainings(await dataProvider.getTrainings());
       setDocuments(await dataProvider.getDocuments());
       setPpeIssues(await dataProvider.getPpeIssues());
+      setPpeAssignments(await dataProvider.getPpeAssignments());
+      setSpecialtyMatrix(await dataProvider.getSpecialtyMatrix());
     }
     void load();
   }, []);
@@ -188,7 +192,7 @@ export default function App() {
   function renderPage() {
     switch (page) {
       case 'dashboard':
-        return <DashboardPage site={selectedSite} sites={sites} selectedSiteId={selectedSiteId} onSiteChange={setSelectedSiteId} employees={siteEmployees} vehicles={siteVehicles} trainings={siteTrainings} totalEmployees={employees.length} totalVehicles={vehicles.length} onNavigate={setPage} />;
+        return <DashboardPage site={selectedSite} sites={sites} selectedSiteId={selectedSiteId} onSiteChange={setSelectedSiteId} employees={siteEmployees} vehicles={siteVehicles} trainings={siteTrainings} totalEmployees={employees.length} totalVehicles={vehicles.length} ppeIssues={ppeIssues} ppeAssignments={ppeAssignments} specialtyMatrix={specialtyMatrix} onNavigate={setPage} />;
       case 'employees':
         return <EmployeesPage employees={employees} onOpen={(id) => { setSelectedEmployeeId(id); setProfileTab('overview'); setPage('employee-profile'); }} onNew={() => setPage('employee-form')} />;
       case 'employee-profile':
@@ -224,7 +228,7 @@ export default function App() {
       case 'settings':
         return <GenericListPage title="Ρυθμίσεις" subtitle="Ρόλοι, permissions, access assignments και demo data" addLabel="Νέα ρύθμιση" />;
       default:
-        return <DashboardPage site={selectedSite} sites={sites} selectedSiteId={selectedSiteId} onSiteChange={setSelectedSiteId} employees={siteEmployees} vehicles={siteVehicles} trainings={siteTrainings} totalEmployees={employees.length} totalVehicles={vehicles.length} onNavigate={setPage} />;
+        return <DashboardPage site={selectedSite} sites={sites} selectedSiteId={selectedSiteId} onSiteChange={setSelectedSiteId} employees={siteEmployees} vehicles={siteVehicles} trainings={siteTrainings} totalEmployees={employees.length} totalVehicles={vehicles.length} ppeIssues={ppeIssues} ppeAssignments={ppeAssignments} specialtyMatrix={specialtyMatrix} onNavigate={setPage} />;
     }
   }
 

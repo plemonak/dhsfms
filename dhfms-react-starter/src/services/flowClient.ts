@@ -738,6 +738,7 @@ export async function getPpeAssignmentsFlow(fallback: PpeAssignment[]): Promise<
     replacementDate: raw.replacementDate !== undefined || raw.ReplacementDate !== undefined ? String(raw.replacementDate ?? raw.ReplacementDate) || undefined : undefined,
     returnDate: raw.returnDate !== undefined || raw.ReturnDate !== undefined ? String(raw.returnDate ?? raw.ReturnDate) || undefined : undefined,
     equipmentId: raw.equipmentId !== undefined || raw.EquipmentID !== undefined ? String(raw.equipmentId ?? raw.EquipmentID) || undefined : undefined,
+    standardAtIssuance: raw.standardAtIssuance !== undefined || raw.StandardAtIssuance !== undefined ? String(raw.standardAtIssuance ?? raw.StandardAtIssuance) || undefined : undefined,
     status: (toText(raw.status ?? raw.Status) || 'Active') as PpeAssignment['status'],
   }));
 }
@@ -748,6 +749,7 @@ export interface CreatePpeAssignmentInput {
   ppeModel?: string;
   quantity: number;
   expiryDate?: string;
+  standardAtIssuance?: string;
 }
 
 export async function createPpeAssignmentFlow(input: CreatePpeAssignmentInput): Promise<{ id?: number; status: string }> {

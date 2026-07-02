@@ -115,6 +115,7 @@ export interface PpeAssignment {
   ppeModel?: string;
   quantity: number;
   expiryDate?: string;
+  standardAtIssuance?: string;
   replacementDate?: string;
   returnDate?: string;
   equipmentId?: string;

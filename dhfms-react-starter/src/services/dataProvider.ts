@@ -55,7 +55,7 @@ export interface IDataProvider {
   attachPpeIssuePdf(ppeIssueId: number, pdfUrl: string): Promise<void>;
   cancelPpeIssue(ppeIssueId: number, cancelledBy: string): Promise<void>;
   getPpeAssignments(employeeId?: number): Promise<PpeAssignment[]>;
-  createPpeAssignment(input: { issuanceId: number; ppeCategory: string; ppeModel?: string; quantity: number; expiryDate?: string }): Promise<PpeAssignment>;
+  createPpeAssignment(input: { issuanceId: number; ppeCategory: string; ppeModel?: string; quantity: number; expiryDate?: string; standardAtIssuance?: string }): Promise<PpeAssignment>;
   updatePpeAssignmentStatus(ppeAssignmentId: number, status: PpeAssignmentStatus, changedBy: string): Promise<void>;
   getMedicalCertificates(employeeId?: number): Promise<MedicalCertificate[]>;
   createMedicalCertificate(input: { employeeId: number; employeeNo?: string; employeeName?: string; certificateType: string; occupationalDoctor?: string; issueDate?: string; expiryDate?: string; restrictions?: string }, file?: File): Promise<MedicalCertificate>;
@@ -507,7 +507,7 @@ export class MockDataProvider implements IDataProvider {
     this.employeeLicenseStore = this.employeeLicenseStore.filter(license => license.id !== licenseId);
   }
 
-  async createPpeAssignment(input: { issuanceId: number; ppeCategory: string; ppeModel?: string; quantity: number; expiryDate?: string }): Promise<PpeAssignment> {
+  async createPpeAssignment(input: { issuanceId: number; ppeCategory: string; ppeModel?: string; quantity: number; expiryDate?: string; standardAtIssuance?: string }): Promise<PpeAssignment> {
     const created: PpeAssignment = {
       id: Date.now() + Math.floor(Math.random() * 1000),
       issuanceId: input.issuanceId,
@@ -515,6 +515,7 @@ export class MockDataProvider implements IDataProvider {
       ppeModel: input.ppeModel,
       quantity: input.quantity,
       expiryDate: input.expiryDate,
+      standardAtIssuance: input.standardAtIssuance,
       status: 'Active',
     };
 
