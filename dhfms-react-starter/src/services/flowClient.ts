@@ -845,6 +845,17 @@ export async function uploadMedicalEvidenceFlow(certificateId: number, employeeN
   return { status: result.status };
 }
 
+// Δεν κάνουμε hard delete των ιατρικών πιστοποιητικών, ίδιος λόγος με τις άδειες.
+export async function cancelMedicalCertificateFlow(certificateId: number, cancelledBy: string, cancelledDate: string): Promise<{ status: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'cancelMedicalCertificate',
+    integrationConfig.powerAutomateFlows.cancelMedicalCertificate,
+    { certificateId, cancelledBy, cancelledDate, flowType: 'cancel-medical-certificate' },
+    { certificateId, status: 'mock-fallback' }
+  );
+  return { status: result.status };
+}
+
 export async function getEmployeeLicensesFlow(fallback: EmployeeLicense[]): Promise<EmployeeLicense[]> {
   const result = await invokeFlowData<Array<Record<string, unknown>>>(
     'getEmployeeLicenses',
@@ -924,6 +935,18 @@ export async function updateEmployeeLicenseFlow(input: UpdateEmployeeLicenseInpu
     integrationConfig.powerAutomateFlows.updateEmployeeLicense,
     { ...input, flowType: 'update-employee-license' },
     { ...input, status: 'mock-fallback' }
+  );
+  return { status: result.status };
+}
+
+// Δεν κάνουμε hard delete των αδειών (χρειάζεται audit trail για επιθεωρήσεις ασφαλείας) —
+// σημειώνουμε την άδεια ως 'Cancelled' στο SharePoint, ίδιο μοτίβο με τις χορηγήσεις ΜΑΠ.
+export async function cancelEmployeeLicenseFlow(licenseId: number, cancelledBy: string, cancelledDate: string): Promise<{ status: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'cancelEmployeeLicense',
+    integrationConfig.powerAutomateFlows.cancelEmployeeLicense,
+    { licenseId, cancelledBy, cancelledDate, flowType: 'cancel-employee-license' },
+    { licenseId, status: 'mock-fallback' }
   );
   return { status: result.status };
 }

@@ -43,6 +43,8 @@ export const integrationConfig = {
     getEmployeeLicenses: readEnv('VITE_POWERAUTOMATE_FLOW_GET_EMPLOYEE_LICENSES'),
     createEmployeeLicense: readEnv('VITE_POWERAUTOMATE_FLOW_CREATE_EMPLOYEE_LICENSE'),
     updateEmployeeLicense: readEnv('VITE_POWERAUTOMATE_FLOW_UPDATE_EMPLOYEE_LICENSE'),
+    cancelEmployeeLicense: readEnv('VITE_POWERAUTOMATE_FLOW_CANCEL_EMPLOYEE_LICENSE'),
+    cancelMedicalCertificate: readEnv('VITE_POWERAUTOMATE_FLOW_CANCEL_MEDICAL_CERTIFICATE'),
     uploadLicenseEvidence: readEnv('VITE_POWERAUTOMATE_FLOW_UPLOAD_LICENSE_EVIDENCE'),
     getVehicles: readEnv('VITE_POWERAUTOMATE_FLOW_GET_VEHICLES'),
     getVehicleDocuments: readEnv('VITE_POWERAUTOMATE_FLOW_GET_VEHICLE_DOCUMENTS'),

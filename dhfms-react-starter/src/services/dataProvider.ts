@@ -7,6 +7,8 @@ import {
   createEmployeeFlow,
   createEmployeeLicenseFlow,
   createInspectionFlow,
+  cancelEmployeeLicenseFlow,
+  cancelMedicalCertificateFlow,
   createInspectionPhotoFlow,
   createMedicalCertificateFlow,
   createPpeAssignmentFlow,
@@ -57,9 +59,11 @@ export interface IDataProvider {
   updatePpeAssignmentStatus(ppeAssignmentId: number, status: PpeAssignmentStatus, changedBy: string): Promise<void>;
   getMedicalCertificates(employeeId?: number): Promise<MedicalCertificate[]>;
   createMedicalCertificate(input: { employeeId: number; employeeNo?: string; employeeName?: string; certificateType: string; occupationalDoctor?: string; issueDate?: string; expiryDate?: string; restrictions?: string }, file?: File): Promise<MedicalCertificate>;
+  deleteMedicalCertificate(certificateId: number, cancelledBy: string): Promise<void>;
   getEmployeeLicenses(employeeId?: number): Promise<EmployeeLicense[]>;
   createEmployeeLicense(input: { employeeId: number; employeeNo?: string; employeeName?: string; licenseType: string; licenseGrade?: string; licenseSpecialty?: string[]; licenseNo?: string; issueDate?: string; expiryDate?: string }, file?: File): Promise<EmployeeLicense>;
   updateEmployeeLicense(input: { licenseId: number; licenseType: string; licenseGrade?: string; licenseSpecialty?: string[]; licenseNo?: string; issueDate?: string; expiryDate?: string }, employeeNo?: string, employeeName?: string, file?: File): Promise<EmployeeLicense>;
+  deleteEmployeeLicense(licenseId: number, cancelledBy: string): Promise<void>;
   getInspections(siteId?: number): Promise<Inspection[]>;
   createInspection(inspection: Omit<Inspection, 'id'>): Promise<Inspection>;
   uploadInspectionPhoto(file: File, folderPath: string): Promise<{ url: string; fileName: string; status?: string }>;
@@ -405,7 +409,7 @@ export class MockDataProvider implements IDataProvider {
 
   async getMedicalCertificates(employeeId?: number): Promise<MedicalCertificate[]> {
     const fromSharePoint = await getMedicalCertificatesFlow(this.medicalCertificateStore);
-    this.medicalCertificateStore = fromSharePoint.length > 0 ? fromSharePoint : this.medicalCertificateStore;
+    this.medicalCertificateStore = (fromSharePoint.length > 0 ? fromSharePoint : this.medicalCertificateStore).filter(cert => cert.status !== 'Cancelled');
     if (!employeeId) return this.medicalCertificateStore;
     return this.medicalCertificateStore.filter(cert => cert.employeeId === employeeId);
   }
@@ -435,9 +439,14 @@ export class MockDataProvider implements IDataProvider {
     return created;
   }
 
+  async deleteMedicalCertificate(certificateId: number, cancelledBy: string): Promise<void> {
+    await cancelMedicalCertificateFlow(certificateId, cancelledBy, new Date().toISOString());
+    this.medicalCertificateStore = this.medicalCertificateStore.filter(cert => cert.id !== certificateId);
+  }
+
   async getEmployeeLicenses(employeeId?: number): Promise<EmployeeLicense[]> {
     const fromSharePoint = await getEmployeeLicensesFlow(this.employeeLicenseStore);
-    this.employeeLicenseStore = fromSharePoint.length > 0 ? fromSharePoint : this.employeeLicenseStore;
+    this.employeeLicenseStore = (fromSharePoint.length > 0 ? fromSharePoint : this.employeeLicenseStore).filter(license => license.status !== 'Cancelled');
     if (!employeeId) return this.employeeLicenseStore;
     return this.employeeLicenseStore.filter(license => license.employeeId === employeeId);
   }
@@ -491,6 +500,11 @@ export class MockDataProvider implements IDataProvider {
 
     this.employeeLicenseStore = this.employeeLicenseStore.map(license => license.id === input.licenseId ? updated : license);
     return updated;
+  }
+
+  async deleteEmployeeLicense(licenseId: number, cancelledBy: string): Promise<void> {
+    await cancelEmployeeLicenseFlow(licenseId, cancelledBy, new Date().toISOString());
+    this.employeeLicenseStore = this.employeeLicenseStore.filter(license => license.id !== licenseId);
   }
 
   async createPpeAssignment(input: { issuanceId: number; ppeCategory: string; ppeModel?: string; quantity: number; expiryDate?: string }): Promise<PpeAssignment> {

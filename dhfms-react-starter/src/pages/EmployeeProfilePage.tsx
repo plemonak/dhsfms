@@ -1,4 +1,4 @@
-import { ArrowLeft, FilePlus2, FileText, PenSquare } from 'lucide-react';
+import { ArrowLeft, FilePlus2, FileText, PenSquare, Trash2 } from 'lucide-react';
 import type { EmployeeLicense, EquipmentItem, MedicalCertificate, PpeAssignment, SpecialtyMatrixEntry, TrainingTopic } from '../types/models';
 import { useEffect, useRef, useState } from 'react';
 import { AddLicenseForm } from '../components/AddLicenseForm';
@@ -104,6 +104,8 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [medicalFormOpen, setMedicalFormOpen] = useState(false);
   const [licenseFormOpen, setLicenseFormOpen] = useState(false);
   const [editingLicense, setEditingLicense] = useState<EmployeeLicense | null>(null);
+  const [pendingLicenseDelete, setPendingLicenseDelete] = useState<EmployeeLicense | null>(null);
+  const [pendingMedicalDelete, setPendingMedicalDelete] = useState<MedicalCertificate | null>(null);
   const [updatingPpeAssignmentId, setUpdatingPpeAssignmentId] = useState<number | null>(null);
   const [showInactivePpe, setShowInactivePpe] = useState(false);
   const [ppeToast, setPpeToast] = useState<string | null>(null);
@@ -727,6 +729,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                         {cert.restrictions ? ` · Περιορισμοί: ${cert.restrictions}` : ''}
                       </div>
                     </div>
+                    <button className="secondary-btn" type="button" onClick={() => setPendingMedicalDelete(cert)}><Trash2 size={15} />Διαγραφή</button>
                     <span className="badge">{cert.status}</span>
                   </div>
                 ))}
@@ -781,6 +784,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                     {license.licenseType === 'Άδεια Χειριστή Μηχανημάτων Έργου' && (
                       <button className="secondary-btn" type="button" onClick={() => { setLicenseFormOpen(false); setEditingLicense(license); }}><PenSquare size={15} />Επεξεργασία</button>
                     )}
+                    <button className="secondary-btn" type="button" onClick={() => setPendingLicenseDelete(license)}><Trash2 size={15} />Διαγραφή</button>
                     <span className="badge">{license.status}</span>
                   </div>
                 ))}
@@ -821,6 +825,38 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
           setReissueOnlyKey(matchedKey);
           if (matchedKey) setSelectedPpeCategoryKeys([matchedKey]);
           setPpeWorkflowOpen(true);
+        }}
+      />
+      <ConfirmDialog
+        open={pendingLicenseDelete !== null}
+        title="Διαγραφή άδειας"
+        message={pendingLicenseDelete ? `Να διαγραφεί η άδεια «${pendingLicenseDelete.licenseType}${pendingLicenseDelete.licenseNo ? ' · ' + pendingLicenseDelete.licenseNo : ''}»; Η ενέργεια δεν αναιρείται από την εφαρμογή.` : ''}
+        confirmLabel="Διαγραφή"
+        onCancel={() => setPendingLicenseDelete(null)}
+        onConfirm={() => {
+          if (pendingLicenseDelete) {
+            const id = pendingLicenseDelete.id;
+            void dataProvider.deleteEmployeeLicense(id, currentUser.displayName).then(() => {
+              setEmployeeLicenses(current => current.filter(l => l.id !== id));
+            });
+          }
+          setPendingLicenseDelete(null);
+        }}
+      />
+      <ConfirmDialog
+        open={pendingMedicalDelete !== null}
+        title="Διαγραφή πιστοποιητικού"
+        message={pendingMedicalDelete ? `Να διαγραφεί το πιστοποιητικό «${pendingMedicalDelete.certificateType}»; Η ενέργεια δεν αναιρείται από την εφαρμογή.` : ''}
+        confirmLabel="Διαγραφή"
+        onCancel={() => setPendingMedicalDelete(null)}
+        onConfirm={() => {
+          if (pendingMedicalDelete) {
+            const id = pendingMedicalDelete.id;
+            void dataProvider.deleteMedicalCertificate(id, currentUser.displayName).then(() => {
+              setMedicalCertificates(current => current.filter(c => c.id !== id));
+            });
+          }
+          setPendingMedicalDelete(null);
         }}
       />
     </div>
