@@ -28,7 +28,7 @@ export default function App() {
   const [ppeIssues, setPpeIssues] = useState<PpeIssue[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | undefined>(1);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | undefined>();
-  const [profileTab, setProfileTab] = useState<'ppe' | 'training' | 'medical' | 'licenses'>('ppe');
+  const [profileTab, setProfileTab] = useState<'overview' | 'ppe' | 'training' | 'medical' | 'licenses'>('overview');
   const [selectedSiteId, setSelectedSiteId] = useState<number | 'all'>('all');
 
   useEffect(() => {
@@ -190,7 +190,7 @@ export default function App() {
       case 'dashboard':
         return <DashboardPage site={selectedSite} sites={sites} selectedSiteId={selectedSiteId} onSiteChange={setSelectedSiteId} employees={siteEmployees} vehicles={siteVehicles} trainings={siteTrainings} totalEmployees={employees.length} totalVehicles={vehicles.length} onNavigate={setPage} />;
       case 'employees':
-        return <EmployeesPage employees={employees} onOpen={(id) => { setSelectedEmployeeId(id); setProfileTab('ppe'); setPage('employee-profile'); }} onNew={() => setPage('employee-form')} />;
+        return <EmployeesPage employees={employees} onOpen={(id) => { setSelectedEmployeeId(id); setProfileTab('overview'); setPage('employee-profile'); }} onNew={() => setPage('employee-form')} />;
       case 'employee-profile':
         return <EmployeeProfilePage employee={selectedEmployee} employees={employees} sites={sites} trainings={trainings} documents={documents.filter(d => d.entityType === 'employee' && d.entityId === selectedEmployeeId)} ppeIssues={ppeIssues.filter(p => p.employeeId === selectedEmployeeId)} onPpeIssuesChanged={refreshPpeIssues} activeTab={profileTab} onTabChange={setProfileTab} onBack={() => setPage('employees')} onEdit={() => setPage('employee-form')} />;
       case 'employee-form':

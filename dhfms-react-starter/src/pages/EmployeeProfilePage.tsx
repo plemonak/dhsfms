@@ -24,7 +24,7 @@ interface Props {
   documents: EvidenceDocument[];
   ppeIssues: PpeIssue[];
   onPpeIssuesChanged: () => void;
-  activeTab: 'ppe' | 'training' | 'medical' | 'licenses';
+  activeTab: 'overview' | 'ppe' | 'training' | 'medical' | 'licenses';
   onTabChange: (tab: Props['activeTab']) => void;
   onBack: () => void;
   onEdit: () => void;
@@ -391,12 +391,26 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
 
       <div style={{ marginTop: 14 }} className="card">
         <div className="tabs">
+          <button className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => onTabChange('overview')}>Στοιχεία</button>
           <button className={`tab ${activeTab === 'ppe' ? 'active' : ''}`} onClick={() => onTabChange('ppe')}>ΜΑΠ</button>
           <button className={`tab ${activeTab === 'training' ? 'active' : ''}`} onClick={() => onTabChange('training')}>Εκπαιδεύσεις</button>
           <button className={`tab ${activeTab === 'medical' ? 'active' : ''}`} onClick={() => onTabChange('medical')}>Ιατρικά</button>
           <button className={`tab ${activeTab === 'licenses' ? 'active' : ''}`} onClick={() => onTabChange('licenses')}>Άδειες</button>
         </div>
         <div className="card-pad">
+          {activeTab === 'overview' && (
+            <div className="form-grid">
+              <div><div className="field-label">Αριθμός εργαζομένου</div><strong>{employee.employeeNo}</strong></div>
+              <div><div className="field-label">Εταιρεία</div><strong>{employee.contractor ?? employee.company}</strong></div>
+              <div><div className="field-label">Κινητό</div><strong>{employee.mobile ?? '-'}</strong></div>
+              <div><div className="field-label">Email</div><strong>{employee.email ?? '-'}</strong></div>
+              <div><div className="field-label">ΑΔΤ / Διαβατήριο</div><strong>{employee.identityDocumentNo ?? employee.idOrTaxNo ?? '-'}</strong></div>
+              <div><div className="field-label">ΑΦΜ</div><strong>{employee.taxNumber ?? '-'}</strong></div>
+              <div><div className="field-label">Πατρώνυμο</div><strong>{employee.fatherName ?? '-'}</strong></div>
+              <div><div className="field-label">Ημερομηνία γέννησης</div><strong>{employee.birthDate ?? '-'}</strong></div>
+              <div><div className="field-label">Λήξη ταυτότητας/διαβατηρίου</div><strong>{employee.identityExpiryDate ?? '-'}</strong></div>
+            </div>
+          )}
           {activeTab === 'ppe' && (
             <>
               <button className="primary-btn" type="button" onClick={() => { setReissueOnlyKey(null); setPpeWorkflowOpen(prev => !prev); }}><FilePlus2 size={17} />Νέα χορήγηση ΜΑΠ</button>
@@ -724,10 +738,14 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                       <div className="row-title">{license.licenseType}{license.licenseNo ? ` · ${license.licenseNo}` : ''}</div>
                       <div className="row-subtitle">
                         {license.licenseGrade ? `${license.licenseGrade} · ` : ''}
-                        {license.licenseSpecialty && license.licenseSpecialty.length > 0 ? `${license.licenseSpecialty.join(', ')} · ` : ''}
                         Λήξη: {license.expiryDate ? formatGreekDate(license.expiryDate) : '-'}
                         {license.evidenceUrl && <> · <a href={license.evidenceUrl} target="_blank" rel="noreferrer">Έγγραφο</a></>}
                       </div>
+                      {license.licenseSpecialty && license.licenseSpecialty.length > 0 && (
+                        <div className="row-subtitle" style={{ marginTop: 2 }}>
+                          {license.licenseSpecialty.map(spec => <div key={spec}>{spec}</div>)}
+                        </div>
+                      )}
                     </div>
                     <span className="badge">{license.status}</span>
                   </div>
@@ -738,23 +756,11 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
         </div>
       </div>
 
-      <SectionCard title="Βασικά στοιχεία">
-        <div className="form-grid">
-          <div><div className="field-label">Αριθμός εργαζομένου</div><strong>{employee.employeeNo}</strong></div>
-          <div><div className="field-label">Εταιρεία</div><strong>{employee.contractor ?? employee.company}</strong></div>
-          <div><div className="field-label">Κινητό</div><strong>{employee.mobile ?? '-'}</strong></div>
-          <div><div className="field-label">Email</div><strong>{employee.email ?? '-'}</strong></div>
-          <div><div className="field-label">ΑΔΤ / Διαβατήριο</div><strong>{employee.identityDocumentNo ?? employee.idOrTaxNo ?? '-'}</strong></div>
-          <div><div className="field-label">ΑΦΜ</div><strong>{employee.taxNumber ?? '-'}</strong></div>
-          <div><div className="field-label">Πατρώνυμο</div><strong>{employee.fatherName ?? '-'}</strong></div>
-          <div><div className="field-label">Ημερομηνία γέννησης</div><strong>{employee.birthDate ?? '-'}</strong></div>
-          <div><div className="field-label">Λήξη ταυτότητας/διαβατηρίου</div><strong>{employee.identityExpiryDate ?? '-'}</strong></div>
+      {activeTab === 'overview' && (
+        <div className="footer-actions">
+          <button className="secondary-btn" onClick={onEdit}><PenSquare size={17} />Επεξεργασία</button>
         </div>
-      </SectionCard>
-
-      <div className="footer-actions">
-        <button className="secondary-btn" onClick={onEdit}><PenSquare size={17} />Επεξεργασία</button>
-      </div>
+      )}
       <QrPreviewModal open={qrModalOpen} title={employee.fullName} subtitle="QR εργαζομένου για έλεγχο και εκτύπωση" payload={qrPayload} qrUrl={qrUrl} onClose={() => setQrModalOpen(false)} />
       <ConfirmDialog
         open={pendingPpeStatusChange !== null}
