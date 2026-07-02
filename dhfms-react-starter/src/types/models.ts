@@ -138,6 +138,8 @@ export interface EmployeeLicense {
   id: number;
   employeeId: number;
   licenseType: string;
+  licenseGrade?: string;
+  licenseSpecialty?: string[];
   licenseNo?: string;
   issueDate?: string;
   expiryDate?: string;

@@ -822,16 +822,48 @@ export async function getEmployeeLicensesFlow(fallback: EmployeeLicense[]): Prom
     return typeof value === 'string' && value.length > 0 ? value : undefined;
   }
 
+  function toChoiceArray(value: unknown): string[] | undefined {
+    if (Array.isArray(value)) {
+      const items = value.map(entry => toChoiceText(entry)).filter(Boolean);
+      return items.length > 0 ? items : undefined;
+    }
+    const text = toChoiceText(value);
+    return text ? [text] : undefined;
+  }
+
   return result.data.map((raw) => ({
     id: Number(raw.id ?? raw.ID ?? 0),
     employeeId: toLookupId(raw.employeeId ?? raw.Employee),
     licenseType: toChoiceText(raw.licenseType ?? raw.LicenseType),
+    licenseGrade: toChoiceText(raw.licenseGrade ?? raw.LicenseGrade) || undefined,
+    licenseSpecialty: toChoiceArray(raw.licenseSpecialty ?? raw.LicenseSpecialty),
     licenseNo: raw.licenseNo !== undefined || raw.LicenseNo !== undefined ? String(raw.licenseNo ?? raw.LicenseNo) || undefined : undefined,
     issueDate: raw.issueDate !== undefined || raw.IssueDate !== undefined ? String(raw.issueDate ?? raw.IssueDate) || undefined : undefined,
     expiryDate: raw.expiryDate !== undefined || raw.ExpiryDate !== undefined ? String(raw.expiryDate ?? raw.ExpiryDate) || undefined : undefined,
     evidenceUrl: toHyperlinkUrl(raw.evidence ?? raw.Evidence),
     status: toChoiceText(raw.status ?? raw.Status) || 'Active',
   }));
+}
+
+export interface CreateEmployeeLicenseInput {
+  employeeId: number;
+  licenseType: string;
+  licenseGrade?: string;
+  licenseSpecialty?: string[];
+  licenseNo?: string;
+  issueDate?: string;
+  expiryDate?: string;
+}
+
+export async function createEmployeeLicenseFlow(input: CreateEmployeeLicenseInput): Promise<{ id?: number; status: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'createEmployeeLicense',
+    integrationConfig.powerAutomateFlows.createEmployeeLicense,
+    { ...input, flowType: 'create-employee-license' },
+    { ...input, status: 'mock-fallback' }
+  );
+  const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
+  return { id: responseId, status: result.status };
 }
 
 export async function getSpecialtyMatrixFlow(fallback: SpecialtyMatrixEntry[]): Promise<SpecialtyMatrixEntry[]> {

@@ -1,6 +1,7 @@
 import { ArrowLeft, FilePlus2, FileText, PenSquare } from 'lucide-react';
 import type { EmployeeLicense, EquipmentItem, MedicalCertificate, PpeAssignment, SpecialtyMatrixEntry, TrainingTopic } from '../types/models';
 import { useEffect, useRef, useState } from 'react';
+import { AddLicenseForm } from '../components/AddLicenseForm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';
 import { GreekDateInput } from '../components/GreekDateInput';
@@ -99,6 +100,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [ppeAssignments, setPpeAssignments] = useState<PpeAssignment[]>([]);
   const [medicalCertificates, setMedicalCertificates] = useState<MedicalCertificate[]>([]);
   const [employeeLicenses, setEmployeeLicenses] = useState<EmployeeLicense[]>([]);
+  const [licenseFormOpen, setLicenseFormOpen] = useState(false);
   const [updatingPpeAssignmentId, setUpdatingPpeAssignmentId] = useState<number | null>(null);
   const [showInactivePpe, setShowInactivePpe] = useState(false);
   const [ppeToast, setPpeToast] = useState<string | null>(null);
@@ -701,19 +703,34 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
           )}
           {activeTab === 'licenses' && (
             <>
-              {employeeLicenses.length === 0 && <EmptyState title="Δεν υπάρχουν καταγεγραμμένες άδειες." />}
-              {employeeLicenses.map(license => (
-                <div className="row" key={license.id}>
-                  <div className="row-main">
-                    <div className="row-title">{license.licenseType}{license.licenseNo ? ` · ${license.licenseNo}` : ''}</div>
-                    <div className="row-subtitle">
-                      Λήξη: {license.expiryDate ? formatGreekDate(license.expiryDate) : '-'}
-                      {license.evidenceUrl && <> · <a href={license.evidenceUrl} target="_blank" rel="noreferrer">Έγγραφο</a></>}
+              <button className="primary-btn" type="button" onClick={() => setLicenseFormOpen(prev => !prev)}><FilePlus2 size={17} />Προσθήκη Άδειας</button>
+              {licenseFormOpen && (
+                <AddLicenseForm
+                  employeeId={employee.id}
+                  onCancel={() => setLicenseFormOpen(false)}
+                  onSaved={() => {
+                    setLicenseFormOpen(false);
+                    void dataProvider.getEmployeeLicenses(employee.id).then(setEmployeeLicenses);
+                  }}
+                />
+              )}
+              <div style={{ marginTop: 12 }}>
+                {employeeLicenses.length === 0 && <EmptyState title="Δεν υπάρχουν καταγεγραμμένες άδειες." />}
+                {employeeLicenses.map(license => (
+                  <div className="row" key={license.id}>
+                    <div className="row-main">
+                      <div className="row-title">{license.licenseType}{license.licenseNo ? ` · ${license.licenseNo}` : ''}</div>
+                      <div className="row-subtitle">
+                        {license.licenseGrade ? `${license.licenseGrade} · ` : ''}
+                        {license.licenseSpecialty && license.licenseSpecialty.length > 0 ? `${license.licenseSpecialty.join(', ')} · ` : ''}
+                        Λήξη: {license.expiryDate ? formatGreekDate(license.expiryDate) : '-'}
+                        {license.evidenceUrl && <> · <a href={license.evidenceUrl} target="_blank" rel="noreferrer">Έγγραφο</a></>}
+                      </div>
                     </div>
+                    <span className="badge">{license.status}</span>
                   </div>
-                  <span className="badge">{license.status}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </>
           )}
         </div>

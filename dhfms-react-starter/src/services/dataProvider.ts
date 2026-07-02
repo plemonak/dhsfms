@@ -5,6 +5,7 @@ import { integrationConfig } from './integrationConfig';
 import {
   cancelPpeIssueFlow,
   createEmployeeFlow,
+  createEmployeeLicenseFlow,
   createInspectionFlow,
   createInspectionPhotoFlow,
   createPpeAssignmentFlow,
@@ -52,6 +53,7 @@ export interface IDataProvider {
   updatePpeAssignmentStatus(ppeAssignmentId: number, status: PpeAssignmentStatus, changedBy: string): Promise<void>;
   getMedicalCertificates(employeeId?: number): Promise<MedicalCertificate[]>;
   getEmployeeLicenses(employeeId?: number): Promise<EmployeeLicense[]>;
+  createEmployeeLicense(input: { employeeId: number; licenseType: string; licenseGrade?: string; licenseSpecialty?: string[]; licenseNo?: string; issueDate?: string; expiryDate?: string }): Promise<EmployeeLicense>;
   getInspections(siteId?: number): Promise<Inspection[]>;
   createInspection(inspection: Omit<Inspection, 'id'>): Promise<Inspection>;
   uploadInspectionPhoto(file: File, folderPath: string): Promise<{ url: string; fileName: string; status?: string }>;
@@ -407,6 +409,28 @@ export class MockDataProvider implements IDataProvider {
     this.employeeLicenseStore = fromSharePoint.length > 0 ? fromSharePoint : this.employeeLicenseStore;
     if (!employeeId) return this.employeeLicenseStore;
     return this.employeeLicenseStore.filter(license => license.employeeId === employeeId);
+  }
+
+  async createEmployeeLicense(input: { employeeId: number; licenseType: string; licenseGrade?: string; licenseSpecialty?: string[]; licenseNo?: string; issueDate?: string; expiryDate?: string }): Promise<EmployeeLicense> {
+    const created: EmployeeLicense = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      employeeId: input.employeeId,
+      licenseType: input.licenseType,
+      licenseGrade: input.licenseGrade,
+      licenseSpecialty: input.licenseSpecialty,
+      licenseNo: input.licenseNo,
+      issueDate: input.issueDate,
+      expiryDate: input.expiryDate,
+      status: 'Active',
+    };
+
+    const createdRemote = await createEmployeeLicenseFlow(input);
+    if (createdRemote.status !== 'mock-fallback' && createdRemote.id) {
+      created.id = createdRemote.id;
+    }
+
+    this.employeeLicenseStore = [created, ...this.employeeLicenseStore];
+    return created;
   }
 
   async createPpeAssignment(input: { issuanceId: number; ppeCategory: string; ppeModel?: string; quantity: number; expiryDate?: string }): Promise<PpeAssignment> {
