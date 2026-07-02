@@ -707,6 +707,8 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
               {licenseFormOpen && (
                 <AddLicenseForm
                   employeeId={employee.id}
+                  employeeNo={employee.employeeNo}
+                  employeeName={employee.fullName}
                   onCancel={() => setLicenseFormOpen(false)}
                   onSaved={() => {
                     setLicenseFormOpen(false);

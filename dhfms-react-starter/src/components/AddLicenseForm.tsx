@@ -13,17 +13,20 @@ import {
 
 interface Props {
   employeeId: number;
+  employeeNo?: string;
+  employeeName?: string;
   onSaved: () => void;
   onCancel: () => void;
 }
 
-export function AddLicenseForm({ employeeId, onSaved, onCancel }: Props) {
+export function AddLicenseForm({ employeeId, employeeNo, employeeName, onSaved, onCancel }: Props) {
   const [licenseType, setLicenseType] = useState('');
   const [licenseGrade, setLicenseGrade] = useState('');
   const [licenseSpecialty, setLicenseSpecialty] = useState<string[]>([]);
   const [licenseNo, setLicenseNo] = useState('');
   const [issueDate, setIssueDate] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
   const isMachinery = licenseType === 'Άδεια Χειριστή Μηχανημάτων Έργου';
@@ -60,13 +63,15 @@ export function AddLicenseForm({ employeeId, onSaved, onCancel }: Props) {
     try {
       await dataProvider.createEmployeeLicense({
         employeeId,
+        employeeNo,
+        employeeName,
         licenseType,
         licenseGrade: licenseGrade || undefined,
         licenseSpecialty: licenseSpecialty.length > 0 ? licenseSpecialty : undefined,
         licenseNo: licenseNo || undefined,
         issueDate: issueDate || undefined,
         expiryDate: expiryDate || undefined,
-      });
+      }, evidenceFile ?? undefined);
       onSaved();
     } finally {
       setSaving(false);
@@ -192,6 +197,17 @@ export function AddLicenseForm({ employeeId, onSaved, onCancel }: Props) {
           <div className="field" style={{ marginTop: 12 }}>
             <label className="field-label">Ημερομηνία λήξης</label>
             <GreekDateInput value={expiryDate} onChange={setExpiryDate} />
+          </div>
+          <div className="field" style={{ marginTop: 12 }}>
+            <label className="field-label">Σκαναρισμένο αρχείο άδειας (PDF ή φωτογραφία, προαιρετικά)</label>
+            <input
+              className="field-input"
+              type="file"
+              accept="application/pdf,image/*"
+              capture="environment"
+              onChange={e => setEvidenceFile(e.target.files?.[0] ?? null)}
+            />
+            {evidenceFile && <div className="row-subtitle" style={{ marginTop: 4 }}>Επιλέχθηκε: {evidenceFile.name}</div>}
           </div>
         </>
       )}

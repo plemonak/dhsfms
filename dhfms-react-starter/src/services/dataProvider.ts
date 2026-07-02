@@ -53,7 +53,7 @@ export interface IDataProvider {
   updatePpeAssignmentStatus(ppeAssignmentId: number, status: PpeAssignmentStatus, changedBy: string): Promise<void>;
   getMedicalCertificates(employeeId?: number): Promise<MedicalCertificate[]>;
   getEmployeeLicenses(employeeId?: number): Promise<EmployeeLicense[]>;
-  createEmployeeLicense(input: { employeeId: number; licenseType: string; licenseGrade?: string; licenseSpecialty?: string[]; licenseNo?: string; issueDate?: string; expiryDate?: string }): Promise<EmployeeLicense>;
+  createEmployeeLicense(input: { employeeId: number; employeeNo?: string; employeeName?: string; licenseType: string; licenseGrade?: string; licenseSpecialty?: string[]; licenseNo?: string; issueDate?: string; expiryDate?: string }, file?: File): Promise<EmployeeLicense>;
   getInspections(siteId?: number): Promise<Inspection[]>;
   createInspection(inspection: Omit<Inspection, 'id'>): Promise<Inspection>;
   uploadInspectionPhoto(file: File, folderPath: string): Promise<{ url: string; fileName: string; status?: string }>;
@@ -411,7 +411,7 @@ export class MockDataProvider implements IDataProvider {
     return this.employeeLicenseStore.filter(license => license.employeeId === employeeId);
   }
 
-  async createEmployeeLicense(input: { employeeId: number; licenseType: string; licenseGrade?: string; licenseSpecialty?: string[]; licenseNo?: string; issueDate?: string; expiryDate?: string }): Promise<EmployeeLicense> {
+  async createEmployeeLicense(input: { employeeId: number; employeeNo?: string; employeeName?: string; licenseType: string; licenseGrade?: string; licenseSpecialty?: string[]; licenseNo?: string; issueDate?: string; expiryDate?: string }, file?: File): Promise<EmployeeLicense> {
     const created: EmployeeLicense = {
       id: Date.now() + Math.floor(Math.random() * 1000),
       employeeId: input.employeeId,
@@ -424,7 +424,7 @@ export class MockDataProvider implements IDataProvider {
       status: 'Active',
     };
 
-    const createdRemote = await createEmployeeLicenseFlow(input);
+    const createdRemote = await createEmployeeLicenseFlow(input, file);
     if (createdRemote.status !== 'mock-fallback' && createdRemote.id) {
       created.id = createdRemote.id;
     }

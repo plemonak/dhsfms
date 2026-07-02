@@ -847,6 +847,8 @@ export async function getEmployeeLicensesFlow(fallback: EmployeeLicense[]): Prom
 
 export interface CreateEmployeeLicenseInput {
   employeeId: number;
+  employeeNo?: string;
+  employeeName?: string;
   licenseType: string;
   licenseGrade?: string;
   licenseSpecialty?: string[];
@@ -855,11 +857,14 @@ export interface CreateEmployeeLicenseInput {
   expiryDate?: string;
 }
 
-export async function createEmployeeLicenseFlow(input: CreateEmployeeLicenseInput): Promise<{ id?: number; status: string }> {
+export async function createEmployeeLicenseFlow(input: CreateEmployeeLicenseInput, file?: File): Promise<{ id?: number; status: string }> {
+  const filePayload = file
+    ? { fileName: file.name, contentType: file.type || 'application/octet-stream', fileContentBase64: await fileToBase64(file) }
+    : {};
   const result = await invokeFlowData<Record<string, unknown>>(
     'createEmployeeLicense',
     integrationConfig.powerAutomateFlows.createEmployeeLicense,
-    { ...input, flowType: 'create-employee-license' },
+    { ...input, ...filePayload, flowType: 'create-employee-license' },
     { ...input, status: 'mock-fallback' }
   );
   const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
