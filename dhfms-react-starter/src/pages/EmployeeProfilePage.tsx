@@ -382,9 +382,15 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                       )}
                     </div>
                   ))}
+                  <SectionCard title="Δήλωση Εκδότη">
+                    Ως εκδότης, βεβαιώνω ότι χορήγησα τα ανωτέρω ΜΑΠ στον εργαζόμενο και τον ενημέρωσα για τη σωστή χρήση, συντήρηση και αποθήκευσή τους.
+                  </SectionCard>
                   <div style={{ marginTop: 12 }}>
                     <SignaturePad signer={selectedIssuerName || 'Εκδότης'} title="Υπογραφή εκδότη" subtitle="Υπογραφή για τη χορήγηση ΜΑΠ" documentId={`ppe-issuer-${employee.id}`} onSignatureCaptured={({ signatureData }) => setPpeSignature(signatureData)} />
                   </div>
+                  <SectionCard title="Δήλωση Εργαζομένου">
+                    Εγώ, ο κάτωθι υπογεγραμμένος εργαζόμενος, βεβαιώνω ότι ενημερώθηκα και εκπαιδεύτηκα σχετικά με το πώς και πότε να εφαρμόζω και να χρησιμοποιώ σωστά τα ΜΑΠ μου, καθώς και πώς να τα καθαρίζω, να τα συντηρώ, να τα αποθηκεύω και να τα απορρίπτω. Θα χρησιμοποιώ όλα τα απαιτούμενα για την εργασία μου ΜΑΠ, θα τα επιθεωρώ πριν από τη χρήση, και θα αναφέρω οποιαδήποτε ζημιά στον προϊστάμενο ή τον εργοδότη μου.
+                  </SectionCard>
                   <div style={{ marginTop: 12 }}>
                     <SignaturePad signer={employee.fullName} title="Υπογραφή εργαζομένου" subtitle="Υπογραφή για τη χορήγηση ΜΑΠ" documentId={`ppe-employee-${employee.id}`} onSignatureCaptured={({ signatureData }) => setPpeEmployeeSignature(signatureData)} />
                   </div>
