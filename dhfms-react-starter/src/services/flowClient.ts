@@ -857,18 +857,33 @@ export interface CreateEmployeeLicenseInput {
   expiryDate?: string;
 }
 
-export async function createEmployeeLicenseFlow(input: CreateEmployeeLicenseInput, file?: File): Promise<{ id?: number; status: string }> {
-  const filePayload = file
-    ? { fileName: file.name, contentType: file.type || 'application/octet-stream', fileContentBase64: await fileToBase64(file) }
-    : {};
+export async function createEmployeeLicenseFlow(input: CreateEmployeeLicenseInput): Promise<{ id?: number; status: string }> {
   const result = await invokeFlowData<Record<string, unknown>>(
     'createEmployeeLicense',
     integrationConfig.powerAutomateFlows.createEmployeeLicense,
-    { ...input, ...filePayload, flowType: 'create-employee-license' },
+    { ...input, flowType: 'create-employee-license' },
     { ...input, status: 'mock-fallback' }
   );
   const responseId = typeof result.data.id === 'number' ? result.data.id : undefined;
   return { id: responseId, status: result.status };
+}
+
+export async function uploadLicenseEvidenceFlow(licenseId: number, employeeNo: string | undefined, employeeName: string | undefined, file: File): Promise<{ status: string }> {
+  const result = await invokeFlowData<Record<string, unknown>>(
+    'uploadLicenseEvidence',
+    integrationConfig.powerAutomateFlows.uploadLicenseEvidence,
+    {
+      licenseId,
+      employeeNo,
+      employeeName,
+      fileName: file.name,
+      contentType: file.type || 'application/octet-stream',
+      fileContentBase64: await fileToBase64(file),
+      flowType: 'upload-license-evidence',
+    },
+    { licenseId, status: 'mock-fallback' }
+  );
+  return { status: result.status };
 }
 
 export async function getSpecialtyMatrixFlow(fallback: SpecialtyMatrixEntry[]): Promise<SpecialtyMatrixEntry[]> {

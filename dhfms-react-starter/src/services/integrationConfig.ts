@@ -40,6 +40,7 @@ export const integrationConfig = {
     getMedicalCertificates: readEnv('VITE_POWERAUTOMATE_FLOW_GET_MEDICAL_CERTIFICATES'),
     getEmployeeLicenses: readEnv('VITE_POWERAUTOMATE_FLOW_GET_EMPLOYEE_LICENSES'),
     createEmployeeLicense: readEnv('VITE_POWERAUTOMATE_FLOW_CREATE_EMPLOYEE_LICENSE'),
+    uploadLicenseEvidence: readEnv('VITE_POWERAUTOMATE_FLOW_UPLOAD_LICENSE_EVIDENCE'),
     getVehicles: readEnv('VITE_POWERAUTOMATE_FLOW_GET_VEHICLES'),
     getVehicleDocuments: readEnv('VITE_POWERAUTOMATE_FLOW_GET_VEHICLE_DOCUMENTS'),
     getSites: readEnv('VITE_POWERAUTOMATE_FLOW_GET_SITES'),

@@ -25,6 +25,7 @@ import {
   getVehiclesFlow,
   getSitesFlow,
   updatePpeAssignmentStatusFlow,
+  uploadLicenseEvidenceFlow,
   updateVehicleFlow,
   uploadInspectionPhotoFlow,
 } from './flowClient';
@@ -424,9 +425,13 @@ export class MockDataProvider implements IDataProvider {
       status: 'Active',
     };
 
-    const createdRemote = await createEmployeeLicenseFlow(input, file);
+    const createdRemote = await createEmployeeLicenseFlow(input);
     if (createdRemote.status !== 'mock-fallback' && createdRemote.id) {
       created.id = createdRemote.id;
+    }
+
+    if (file && createdRemote.status !== 'mock-fallback' && createdRemote.id) {
+      await uploadLicenseEvidenceFlow(createdRemote.id, input.employeeNo, input.employeeName, file);
     }
 
     this.employeeLicenseStore = [created, ...this.employeeLicenseStore];
