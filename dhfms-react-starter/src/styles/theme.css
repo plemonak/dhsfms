@@ -81,6 +81,10 @@ button { cursor: pointer; }
 .primary-btn:hover { background: var(--dh-red); }
 .secondary-btn { background: #fff; color: var(--dh-navy); border: 1px solid var(--dh-line); }
 .danger-btn { background: #FDEDEC; color: var(--dh-red); }
+.icon-btn { border: none; background: #FDEDEC; color: var(--dh-red); border-radius: 8px; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; flex: none; cursor: pointer; }
+.icon-btn:hover { background: #FBD8D5; }
+.icon-btn:disabled { opacity: .5; cursor: default; }
+.toast-banner { background: #E8F8EF; color: #1E7A46; border: 1px solid #BEEBD1; border-radius: 8px; padding: 8px 12px; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
 .row { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-bottom: 1px solid #F1F3F5; }
 .row:last-child { border-bottom: none; }
 .row.clickable { cursor: pointer; }

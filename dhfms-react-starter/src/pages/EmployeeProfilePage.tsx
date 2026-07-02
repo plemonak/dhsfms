@@ -1,4 +1,4 @@
-import { ArrowLeft, FilePlus2, PenSquare } from 'lucide-react';
+import { ArrowLeft, FilePlus2, PenSquare, Trash2 } from 'lucide-react';
 import type { EquipmentItem, PpeAssignment, SpecialtyMatrixEntry, TrainingTopic } from '../types/models';
 import { useEffect, useState } from 'react';
 import { EmptyState } from '../components/EmptyState';
@@ -100,6 +100,8 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [selectedPpeIssueIds, setSelectedPpeIssueIds] = useState<number[]>([]);
   const [cancellingPpeIssues, setCancellingPpeIssues] = useState(false);
   const [cancellingPpeAssignmentId, setCancellingPpeAssignmentId] = useState<number | null>(null);
+  const [showCancelledPpe, setShowCancelledPpe] = useState(false);
+  const [ppeToast, setPpeToast] = useState<string | null>(null);
   const [equipmentWorkflowOpen, setEquipmentWorkflowOpen] = useState(false);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<number | null>(null);
   const [equipmentIssueDate, setEquipmentIssueDate] = useState(new Date().toISOString().slice(0, 10));
@@ -328,6 +330,8 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     try {
       await dataProvider.cancelPpeAssignment(id, currentUser.displayName);
       await refreshPpeAssignments();
+      setPpeToast('Το ΜΑΠ ακυρώθηκε.');
+      setTimeout(() => setPpeToast(null), 3000);
     } finally {
       setCancellingPpeAssignmentId(null);
     }
@@ -355,6 +359,10 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     setQrUrl(generated.qrUrl);
     setQrModalOpen(true);
   }
+
+  const cancelledPpeAssignments = ppeAssignments.filter(a => a.status === 'Cancelled');
+  const activePpeAssignments = ppeAssignments.filter(a => a.status !== 'Cancelled');
+  const visiblePpeAssignments = showCancelledPpe ? ppeAssignments : activePpeAssignments;
 
   return (
     <div className="page">
@@ -521,8 +529,9 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
               </div>
               <div style={{ marginTop: 12 }}>
                 <div className="section-title">ΜΑΠ σε χρήση</div>
-                {ppeAssignments.filter(a => a.status !== 'Cancelled').length === 0 && <div className="row-subtitle">Δεν υπάρχουν καταγεγραμμένα ΜΑΠ.</div>}
-                {ppeAssignments.filter(a => a.status !== 'Cancelled').map(assignment => (
+                {ppeToast && <div className="toast-banner">{ppeToast}</div>}
+                {visiblePpeAssignments.length === 0 && <div className="row-subtitle">Δεν υπάρχουν καταγεγραμμένα ΜΑΠ.</div>}
+                {visiblePpeAssignments.map(assignment => (
                   <div className="row" key={assignment.id}>
                     <div className="row-main">
                       <div className="row-title">{assignment.ppeCategory}{assignment.ppeModel ? ` · ${assignment.ppeModel}` : ''}</div>
@@ -531,17 +540,24 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                       </div>
                     </div>
                     <span className={`badge ${assignment.status}`}>{PPE_ASSIGNMENT_STATUS_LABELS[assignment.status]}</span>
-                    <button
-                      className="danger-btn"
-                      type="button"
-                      style={{ marginLeft: 8 }}
-                      onClick={() => void cancelPpeAssignment(assignment.id)}
-                      disabled={cancellingPpeAssignmentId === assignment.id}
-                    >
-                      {cancellingPpeAssignmentId === assignment.id ? 'Ακύρωση...' : 'Ακύρωση'}
-                    </button>
+                    {assignment.status !== 'Cancelled' && (
+                      <button
+                        className="icon-btn"
+                        type="button"
+                        title="Ακύρωση"
+                        onClick={() => void cancelPpeAssignment(assignment.id)}
+                        disabled={cancellingPpeAssignmentId === assignment.id}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                 ))}
+                {cancelledPpeAssignments.length > 0 && (
+                  <button className="secondary-btn" type="button" style={{ marginTop: 8 }} onClick={() => setShowCancelledPpe(v => !v)}>
+                    {showCancelledPpe ? 'Απόκρυψη ακυρωμένων' : `Ακυρωμένα (${cancelledPpeAssignments.length})`}
+                  </button>
+                )}
               </div>
             </>
           )}
