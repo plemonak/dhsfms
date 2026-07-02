@@ -361,8 +361,8 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                       </label>
                       {selectedPpeCategoryKeys.includes(option.key) && (
                         <div className="form-grid" style={{ marginTop: 8 }}>
-                          <input className="field-input" type="text" placeholder="Μοντέλο (προαιρετικά)" value={ppeItemDetails[option.key]?.model ?? ''} onChange={e => updatePpeItemDetail(option.key, 'model', e.target.value)} />
-                          <input className="field-input" type="text" placeholder="Νούμερο/Μέγεθος (προαιρετικά)" value={ppeItemDetails[option.key]?.size ?? ''} onChange={e => updatePpeItemDetail(option.key, 'size', e.target.value)} />
+                          <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Μοντέλο (προαιρετικά)" value={ppeItemDetails[option.key]?.model ?? ''} onChange={e => updatePpeItemDetail(option.key, 'model', e.target.value)} />
+                          <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Νούμερο/Μέγεθος (προαιρετικά)" value={ppeItemDetails[option.key]?.size ?? ''} onChange={e => updatePpeItemDetail(option.key, 'size', e.target.value)} />
                         </div>
                       )}
                     </div>
@@ -376,8 +376,8 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                       </label>
                       {selectedPpeCategoryKeys.includes(option.key) && (
                         <div className="form-grid" style={{ marginTop: 8 }}>
-                          <input className="field-input" type="text" placeholder="Μοντέλο (προαιρετικά)" value={ppeItemDetails[option.key]?.model ?? ''} onChange={e => updatePpeItemDetail(option.key, 'model', e.target.value)} />
-                          <input className="field-input" type="text" placeholder="Νούμερο/Μέγεθος (προαιρετικά)" value={ppeItemDetails[option.key]?.size ?? ''} onChange={e => updatePpeItemDetail(option.key, 'size', e.target.value)} />
+                          <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Μοντέλο (προαιρετικά)" value={ppeItemDetails[option.key]?.model ?? ''} onChange={e => updatePpeItemDetail(option.key, 'model', e.target.value)} />
+                          <input className="field-input" style={{ minHeight: 32, padding: '6px 10px' }} type="text" placeholder="Νούμερο/Μέγεθος (προαιρετικά)" value={ppeItemDetails[option.key]?.size ?? ''} onChange={e => updatePpeItemDetail(option.key, 'size', e.target.value)} />
                         </div>
                       )}
                     </div>
