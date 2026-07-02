@@ -264,6 +264,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
 
     const createdIssue = await dataProvider.createPpeIssue({
       employeeId: employee.id,
+      employeeName: employee.fullName,
       siteId: employee.siteId,
       issuedById: selectedIssuerId,
       issuedByName: issuerName,

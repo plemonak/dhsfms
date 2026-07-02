@@ -42,7 +42,7 @@ export interface IDataProvider {
   getDocuments(entityType?: EvidenceDocument['entityType'], entityId?: number): Promise<EvidenceDocument[]>;
   getPpeIssues(employeeId?: number): Promise<PpeIssue[]>;
   getSpecialtyMatrix(): Promise<SpecialtyMatrixEntry[]>;
-  createPpeIssue(input: { employeeId: number; siteId: number; issuedById: number; issuedByName: string; ppeItemsSummary: string }): Promise<PpeIssue>;
+  createPpeIssue(input: { employeeId: number; employeeName: string; siteId: number; issuedById: number; issuedByName: string; ppeItemsSummary: string }): Promise<PpeIssue>;
   attachPpeIssuePdf(ppeIssueId: number, pdfUrl: string): Promise<void>;
   cancelPpeIssue(ppeIssueId: number, cancelledBy: string): Promise<void>;
   getPpeAssignments(employeeId?: number): Promise<PpeAssignment[]>;
@@ -341,7 +341,7 @@ export class MockDataProvider implements IDataProvider {
     return getSpecialtyMatrixFlow([]);
   }
 
-  async createPpeIssue(input: { employeeId: number; siteId: number; issuedById: number; issuedByName: string; ppeItemsSummary: string }): Promise<PpeIssue> {
+  async createPpeIssue(input: { employeeId: number; employeeName: string; siteId: number; issuedById: number; issuedByName: string; ppeItemsSummary: string }): Promise<PpeIssue> {
     const created: PpeIssue = {
       id: Date.now(),
       employeeId: input.employeeId,
@@ -354,8 +354,10 @@ export class MockDataProvider implements IDataProvider {
 
     const createdRemote = await createPpeIssueFlow({
       employeeId: input.employeeId,
+      employeeName: input.employeeName,
       siteId: input.siteId,
       issuedById: input.issuedById,
+      issuedByName: input.issuedByName,
       issueDate: created.issueDate,
       status: created.status,
       ppeItemsSummary: created.ppeItemsSummary,
