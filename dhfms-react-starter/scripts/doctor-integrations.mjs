@@ -16,12 +16,22 @@ const optionalVars = [
   'VITE_POWERAUTOMATE_FLOW_GET_EMPLOYEE_DOCUMENTS',
   'VITE_POWERAUTOMATE_FLOW_GET_VEHICLE_DOCUMENTS',
   'VITE_POWERAUTOMATE_FLOW_UPLOAD_EMPLOYEE_DOCUMENT',
+  'VITE_POWERAUTOMATE_FLOW_GET_SPECIALTY_MATRIX',
+  'VITE_POWERAUTOMATE_FLOW_GET_PPE_ISSUES',
 ];
 
 const flowChecks = [
   ['GET_EMPLOYEES', 'VITE_POWERAUTOMATE_FLOW_GET_EMPLOYEES'],
   ['GET_SITES', 'VITE_POWERAUTOMATE_FLOW_GET_SITES'],
   ['GET_VEHICLES', 'VITE_POWERAUTOMATE_FLOW_GET_VEHICLES'],
+];
+
+// Read-only flows: safe να τα καλέσουμε για έλεγχο σχήματος δεδομένων χωρίς παρενέργειες.
+// Το PPE_ISSUE_PDF/CREATE_PPE_ISSUE/CANCEL_PPE_ISSUE ΔΕΝ μπαίνουν εδώ γιατί έχουν πραγματικές
+// παρενέργειες (φτιάχνουν PDF/εγγραφές) — γι' αυτά ελέγχουμε μόνο ότι το URL υπάρχει.
+const optionalFlowChecks = [
+  ['GET_SPECIALTY_MATRIX', 'VITE_POWERAUTOMATE_FLOW_GET_SPECIALTY_MATRIX'],
+  ['GET_PPE_ISSUES', 'VITE_POWERAUTOMATE_FLOW_GET_PPE_ISSUES'],
 ];
 
 function loadEnvLocal() {
@@ -164,6 +174,16 @@ function looksLikeSite(item) {
     (hasAny(record, ['Title', 'Name', 'name']) && !looksLikeEmployee(item) && !looksLikeVehicle(item));
 }
 
+function looksLikeSpecialtyMatrix(item) {
+  const record = asRecord(item);
+  return hasAny(record, ['specialty', 'Specialty', 'ppeCategory', 'PPECategory', 'isMandatory', 'IsMandatory']);
+}
+
+function looksLikePpeIssue(item) {
+  const record = asRecord(item);
+  return hasAny(record, ['employeeId', 'EmployeeId', 'Employee', 'issuedBy', 'IssuedBy', 'ppeItemsSummary', 'PPEItemsSummary']);
+}
+
 function majority(items, predicate) {
   if (items.length === 0) {
     return false;
@@ -251,6 +271,42 @@ if (majority(vehicles, looksLikeSite)) {
 if (majority(employees, looksLikeSite) || majority(employees, looksLikeVehicle)) {
   console.warn('GET_EMPLOYEES looks like sites or vehicles. Flow may be swapped.');
   hasError = true;
+}
+
+// Προαιρετικά ΜΑΠ flows — ελέγχονται μόνο αν έχουν οριστεί (χωρίς να αποτυγχάνει το doctor αν λείπουν).
+for (const [label, envName] of optionalFlowChecks) {
+  const url = readEnv(envName);
+  if (!url) {
+    continue;
+  }
+  try {
+    const records = await callFlow(label, url);
+    results.set(label, records);
+    console.log(`${label}: first 3 raw records`);
+    console.log(JSON.stringify(records.slice(0, 3), null, 2));
+  } catch {
+    console.error(`${label}: request failed`);
+    hasError = true;
+  }
+}
+
+const specialtyMatrix = results.get('GET_SPECIALTY_MATRIX') ?? [];
+const ppeIssues = results.get('GET_PPE_ISSUES') ?? [];
+
+if (majority(specialtyMatrix, looksLikePpeIssue)) {
+  console.warn('GET_SPECIALTY_MATRIX looks like PPE issuances. Flow URL may be swapped with GET_PPE_ISSUES or PPE_ISSUE_PDF.');
+  hasError = true;
+}
+
+if (majority(ppeIssues, looksLikeSpecialtyMatrix)) {
+  console.warn('GET_PPE_ISSUES looks like SpecialtyMatrix rows. Flow URL may be swapped with GET_SPECIALTY_MATRIX.');
+  hasError = true;
+}
+
+// Write-only ΜΑΠ flows (πραγματικές παρενέργειες) — ελέγχουμε μόνο ότι το URL υπάρχει, ΔΕΝ τα καλούμε.
+for (const envName of ['VITE_POWERAUTOMATE_FLOW_CREATE_PPE_ISSUE', 'VITE_POWERAUTOMATE_FLOW_CANCEL_PPE_ISSUE', 'VITE_POWERAUTOMATE_FLOW_PPE_ISSUE_PDF']) {
+  const url = readEnv(envName);
+  console.log(`${envName}: ${url ? 'SET (not called — has side effects)' : 'MISSING_OPTIONAL'}`);
 }
 
 if (hasError) {
