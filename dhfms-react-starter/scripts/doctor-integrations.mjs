@@ -229,13 +229,16 @@ for (const name of optionalVars) {
 }
 
 if (hasError) {
-  console.error('Integration doctor failed before flow calls because required env vars are missing or invalid.');
-  process.exit(1);
+  console.warn('Some required env vars are missing or invalid — continuing with whatever flows ARE configured, but exit code will still be 1.');
 }
 
 const results = new Map();
 
 for (const [label, envName] of flowChecks) {
+  if (!readEnv(envName)) {
+    console.log(`${label}: SKIPPED (missing ${envName})`);
+    continue;
+  }
   try {
     const records = await callFlow(label, readEnv(envName));
     results.set(label, records);
