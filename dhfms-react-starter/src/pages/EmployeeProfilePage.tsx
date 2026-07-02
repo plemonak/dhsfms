@@ -1,6 +1,7 @@
 import { ArrowLeft, FilePlus2, PenSquare, Trash2 } from 'lucide-react';
 import type { EquipmentItem, PpeAssignment, SpecialtyMatrixEntry, TrainingTopic } from '../types/models';
 import { useEffect, useState } from 'react';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';
 import { PageHeader } from '../components/PageHeader';
 import { SectionCard } from '../components/SectionCard';
@@ -102,6 +103,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [cancellingPpeAssignmentId, setCancellingPpeAssignmentId] = useState<number | null>(null);
   const [showCancelledPpe, setShowCancelledPpe] = useState(false);
   const [ppeToast, setPpeToast] = useState<string | null>(null);
+  const [pendingCancelPpeAssignmentId, setPendingCancelPpeAssignmentId] = useState<number | null>(null);
   const [equipmentWorkflowOpen, setEquipmentWorkflowOpen] = useState(false);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<number | null>(null);
   const [equipmentIssueDate, setEquipmentIssueDate] = useState(new Date().toISOString().slice(0, 10));
@@ -327,7 +329,6 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   }
 
   async function cancelPpeAssignment(id: number) {
-    if (!window.confirm('Να ακυρωθεί αυτό το ΜΑΠ;')) return;
     setCancellingPpeAssignmentId(id);
     try {
       await dataProvider.cancelPpeAssignment(id, currentUser.displayName);
@@ -547,7 +548,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                         className="icon-btn"
                         type="button"
                         title="Ακύρωση"
-                        onClick={() => void cancelPpeAssignment(assignment.id)}
+                        onClick={() => setPendingCancelPpeAssignmentId(assignment.id)}
                         disabled={cancellingPpeAssignmentId === assignment.id}
                       >
                         <Trash2 size={16} />
@@ -723,6 +724,17 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
         <button className="secondary-btn" onClick={onEdit}><PenSquare size={17} />Επεξεργασία</button>
       </div>
       <QrPreviewModal open={qrModalOpen} title={employee.fullName} subtitle="QR εργαζομένου για έλεγχο και εκτύπωση" payload={qrPayload} qrUrl={qrUrl} onClose={() => setQrModalOpen(false)} />
+      <ConfirmDialog
+        open={pendingCancelPpeAssignmentId !== null}
+        title="Ακύρωση ΜΑΠ"
+        message="Να ακυρωθεί αυτό το ΜΑΠ; Η ενέργεια καταγράφεται και δεν αναιρείται από την εφαρμογή."
+        confirmLabel="Ακύρωση ΜΑΠ"
+        onCancel={() => setPendingCancelPpeAssignmentId(null)}
+        onConfirm={() => {
+          if (pendingCancelPpeAssignmentId !== null) void cancelPpeAssignment(pendingCancelPpeAssignmentId);
+          setPendingCancelPpeAssignmentId(null);
+        }}
+      />
     </div>
   );
 }
