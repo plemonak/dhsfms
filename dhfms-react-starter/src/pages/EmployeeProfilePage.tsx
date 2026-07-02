@@ -117,6 +117,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   }, [employee.id, employee.siteId]);
 
   async function refreshPpeAssignments() {
+    if (!employee) return;
     setPpeAssignments(await dataProvider.getPpeAssignments(employee.id));
   }
 
