@@ -1,4 +1,5 @@
 import { execSync, spawn } from 'node:child_process';
+import { createConnection } from 'node:net';
 
 const port = process.env.DHFMS_DEV_PORT ?? '5180';
 const host = '0.0.0.0';
@@ -11,6 +12,27 @@ function gitValue(command, fallback = 'unknown') {
   } catch {
     return fallback;
   }
+}
+
+function isPortAlreadyInUse(portToCheck) {
+  return new Promise(resolve => {
+    const socket = createConnection({ port: Number(portToCheck), host: '127.0.0.1' });
+    const finish = result => {
+      socket.destroy();
+      resolve(result);
+    };
+    socket.setTimeout(500);
+    socket.once('connect', () => finish(true));
+    socket.once('timeout', () => finish(false));
+    socket.once('error', () => finish(false));
+  });
+}
+
+const alreadyRunning = await isPortAlreadyInUse(port);
+if (alreadyRunning) {
+  console.log('');
+  console.log(`Ο dev server τρέχει ήδη στο port ${port} (πιθανόν από προηγούμενο tab). Δεν χρειάζεται τίποτα άλλο.`);
+  process.exit(0);
 }
 
 const repoRoot = new URL('..', import.meta.url);
