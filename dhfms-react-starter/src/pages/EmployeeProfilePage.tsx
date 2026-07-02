@@ -1,4 +1,4 @@
-import { ArrowLeft, FilePlus2, FileText, PenSquare, Trash2 } from 'lucide-react';
+import { ArrowLeft, FilePlus2, FileText, PenSquare } from 'lucide-react';
 import type { EquipmentItem, PpeAssignment, SpecialtyMatrixEntry, TrainingTopic } from '../types/models';
 import { useEffect, useState } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -98,10 +98,10 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [selectedIssuerId, setSelectedIssuerId] = useState<number | null>(null);
   const [specialtyMatrix, setSpecialtyMatrix] = useState<SpecialtyMatrixEntry[]>([]);
   const [ppeAssignments, setPpeAssignments] = useState<PpeAssignment[]>([]);
-  const [cancellingPpeAssignmentId, setCancellingPpeAssignmentId] = useState<number | null>(null);
-  const [showCancelledPpe, setShowCancelledPpe] = useState(false);
+  const [updatingPpeAssignmentId, setUpdatingPpeAssignmentId] = useState<number | null>(null);
+  const [showInactivePpe, setShowInactivePpe] = useState(false);
   const [ppeToast, setPpeToast] = useState<string | null>(null);
-  const [pendingCancelPpeAssignmentId, setPendingCancelPpeAssignmentId] = useState<number | null>(null);
+  const [pendingPpeStatusChange, setPendingPpeStatusChange] = useState<{ id: number; status: PpeAssignment['status'] } | null>(null);
   const [equipmentWorkflowOpen, setEquipmentWorkflowOpen] = useState(false);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<number | null>(null);
   const [equipmentIssueDate, setEquipmentIssueDate] = useState(new Date().toISOString().slice(0, 10));
@@ -310,15 +310,15 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     void refreshPpeAssignments();
   }
 
-  async function cancelPpeAssignment(id: number) {
-    setCancellingPpeAssignmentId(id);
+  async function applyPpeAssignmentStatus(id: number, status: PpeAssignment['status']) {
+    setUpdatingPpeAssignmentId(id);
     try {
-      await dataProvider.cancelPpeAssignment(id, currentUser.displayName);
+      await dataProvider.updatePpeAssignmentStatus(id, status, currentUser.displayName);
       await refreshPpeAssignments();
-      setPpeToast('Το ΜΑΠ ακυρώθηκε.');
+      setPpeToast(`Το ΜΑΠ καταχωρήθηκε ως «${PPE_ASSIGNMENT_STATUS_LABELS[status]}».`);
       setTimeout(() => setPpeToast(null), 3000);
     } finally {
-      setCancellingPpeAssignmentId(null);
+      setUpdatingPpeAssignmentId(null);
     }
   }
 
@@ -345,9 +345,9 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     setQrModalOpen(true);
   }
 
-  const cancelledPpeAssignments = ppeAssignments.filter(a => a.status === 'Cancelled');
-  const activePpeAssignments = ppeAssignments.filter(a => a.status !== 'Cancelled');
-  const visiblePpeAssignments = showCancelledPpe ? ppeAssignments : activePpeAssignments;
+  const inactivePpeAssignments = ppeAssignments.filter(a => a.status !== 'Active');
+  const activePpeAssignments = ppeAssignments.filter(a => a.status === 'Active');
+  const visiblePpeAssignments = showInactivePpe ? ppeAssignments : activePpeAssignments;
 
   return (
     <div className="page">
@@ -505,22 +505,31 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                         </a>
                       ) : null;
                     })()}
-                    {assignment.status !== 'Cancelled' && (
-                      <button
-                        className="icon-btn"
-                        type="button"
-                        title="Ακύρωση"
-                        onClick={() => setPendingCancelPpeAssignmentId(assignment.id)}
-                        disabled={cancellingPpeAssignmentId === assignment.id}
+                    {assignment.status === 'Active' && (
+                      <select
+                        className="field-select"
+                        style={{ minHeight: 30, padding: '4px 8px', width: 'auto' }}
+                        value=""
+                        disabled={updatingPpeAssignmentId === assignment.id}
+                        onChange={e => {
+                          const status = e.target.value as PpeAssignment['status'];
+                          if (status) setPendingPpeStatusChange({ id: assignment.id, status });
+                          e.target.value = '';
+                        }}
                       >
-                        <Trash2 size={16} />
-                      </button>
+                        <option value="">Ενέργεια...</option>
+                        <option value="Replaced">Αντικατάσταση</option>
+                        <option value="Lost">Απώλεια</option>
+                        <option value="Damaged">Φθορά</option>
+                        <option value="Returned">Επιστροφή</option>
+                        <option value="Cancelled">Ακύρωση</option>
+                      </select>
                     )}
                   </div>
                 ))}
-                {cancelledPpeAssignments.length > 0 && (
-                  <button className="secondary-btn" type="button" style={{ marginTop: 8 }} onClick={() => setShowCancelledPpe(v => !v)}>
-                    {showCancelledPpe ? 'Απόκρυψη ακυρωμένων' : `Ακυρωμένα (${cancelledPpeAssignments.length})`}
+                {inactivePpeAssignments.length > 0 && (
+                  <button className="secondary-btn" type="button" style={{ marginTop: 8 }} onClick={() => setShowInactivePpe(v => !v)}>
+                    {showInactivePpe ? 'Απόκρυψη ιστορικού' : `Ιστορικό (${inactivePpeAssignments.length})`}
                   </button>
                 )}
               </div>
@@ -687,14 +696,14 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
       </div>
       <QrPreviewModal open={qrModalOpen} title={employee.fullName} subtitle="QR εργαζομένου για έλεγχο και εκτύπωση" payload={qrPayload} qrUrl={qrUrl} onClose={() => setQrModalOpen(false)} />
       <ConfirmDialog
-        open={pendingCancelPpeAssignmentId !== null}
-        title="Ακύρωση ΜΑΠ"
-        message="Να ακυρωθεί αυτό το ΜΑΠ; Η ενέργεια καταγράφεται και δεν αναιρείται από την εφαρμογή."
-        confirmLabel="Ακύρωση ΜΑΠ"
-        onCancel={() => setPendingCancelPpeAssignmentId(null)}
+        open={pendingPpeStatusChange !== null}
+        title="Ενέργεια ΜΑΠ"
+        message={pendingPpeStatusChange ? `Να καταχωρηθεί το ΜΑΠ ως «${PPE_ASSIGNMENT_STATUS_LABELS[pendingPpeStatusChange.status]}»; Η ενέργεια καταγράφεται και δεν αναιρείται από την εφαρμογή.` : ''}
+        confirmLabel={pendingPpeStatusChange ? PPE_ASSIGNMENT_STATUS_LABELS[pendingPpeStatusChange.status] : 'Επιβεβαίωση'}
+        onCancel={() => setPendingPpeStatusChange(null)}
         onConfirm={() => {
-          if (pendingCancelPpeAssignmentId !== null) void cancelPpeAssignment(pendingCancelPpeAssignmentId);
-          setPendingCancelPpeAssignmentId(null);
+          if (pendingPpeStatusChange) void applyPpeAssignmentStatus(pendingPpeStatusChange.id, pendingPpeStatusChange.status);
+          setPendingPpeStatusChange(null);
         }}
       />
     </div>

@@ -761,11 +761,11 @@ export async function createPpeAssignmentFlow(input: CreatePpeAssignmentInput): 
   return { id: responseId, status: result.status };
 }
 
-export async function cancelPpeAssignmentFlow(ppeAssignmentId: number, cancelledBy: string, cancelledDate: string): Promise<{ status: string }> {
+export async function updatePpeAssignmentStatusFlow(ppeAssignmentId: number, newStatus: string, changedBy: string, changedDate: string): Promise<{ status: string }> {
   const result = await invokeFlowData<Record<string, unknown>>(
-    'cancelPpeAssignment',
+    'updatePpeAssignmentStatus',
     integrationConfig.powerAutomateFlows.cancelPpeAssignment,
-    { ppeAssignmentId, cancelledBy, cancelledDate, flowType: 'cancel-ppe-assignment' },
+    { ppeAssignmentId, status: newStatus, cancelledBy: changedBy, cancelledDate: changedDate, flowType: 'update-ppe-assignment-status' },
     { ppeAssignmentId, status: 'mock-fallback' }
   );
   return { status: result.status };

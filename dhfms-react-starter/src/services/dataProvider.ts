@@ -1,9 +1,8 @@
-import type { Employee, EquipmentItem, EvidenceDocument, Inspection, InspectionPhoto, PpeAssignment, PpeCatalogItem, PpeIssue, ProjectStaffMember, SpecialtyMatrixEntry, Site, TrainingSession, TrainingTopic, Vehicle } from '../types/models';
+import type { Employee, EquipmentItem, EvidenceDocument, Inspection, InspectionPhoto, PpeAssignment, PpeAssignmentStatus, PpeCatalogItem, PpeIssue, ProjectStaffMember, SpecialtyMatrixEntry, Site, TrainingSession, TrainingTopic, Vehicle } from '../types/models';
 import { documents, employees, equipmentCatalog, ppeCatalog, ppeIssues, projectStaff, sites, trainingTopics, trainings, vehicles } from '../data/mockData';
 import { FlowAdapter, OcrAdapter, QrAdapter, SharePointAdapter, SignatureAdapter } from './integrationAdapters';
 import { integrationConfig } from './integrationConfig';
 import {
-  cancelPpeAssignmentFlow,
   cancelPpeIssueFlow,
   createEmployeeFlow,
   createInspectionFlow,
@@ -22,6 +21,7 @@ import {
   getVehicleDocumentsFlow,
   getVehiclesFlow,
   getSitesFlow,
+  updatePpeAssignmentStatusFlow,
   updateVehicleFlow,
   uploadInspectionPhotoFlow,
 } from './flowClient';
@@ -47,7 +47,7 @@ export interface IDataProvider {
   cancelPpeIssue(ppeIssueId: number, cancelledBy: string): Promise<void>;
   getPpeAssignments(employeeId?: number): Promise<PpeAssignment[]>;
   createPpeAssignment(input: { issuanceId: number; ppeCategory: string; ppeModel?: string; quantity: number; expiryDate?: string }): Promise<PpeAssignment>;
-  cancelPpeAssignment(ppeAssignmentId: number, cancelledBy: string): Promise<void>;
+  updatePpeAssignmentStatus(ppeAssignmentId: number, status: PpeAssignmentStatus, changedBy: string): Promise<void>;
   getInspections(siteId?: number): Promise<Inspection[]>;
   createInspection(inspection: Omit<Inspection, 'id'>): Promise<Inspection>;
   uploadInspectionPhoto(file: File, folderPath: string): Promise<{ url: string; fileName: string; status?: string }>;
@@ -409,11 +409,11 @@ export class MockDataProvider implements IDataProvider {
     return created;
   }
 
-  async cancelPpeAssignment(ppeAssignmentId: number, cancelledBy: string): Promise<void> {
-    const cancelledDate = new Date().toISOString();
-    await cancelPpeAssignmentFlow(ppeAssignmentId, cancelledBy, cancelledDate);
+  async updatePpeAssignmentStatus(ppeAssignmentId: number, status: PpeAssignmentStatus, changedBy: string): Promise<void> {
+    const changedDate = new Date().toISOString();
+    await updatePpeAssignmentStatusFlow(ppeAssignmentId, status, changedBy, changedDate);
     this.ppeAssignmentStore = this.ppeAssignmentStore.map(assignment =>
-      assignment.id === ppeAssignmentId ? { ...assignment, status: 'Cancelled', cancelledBy, cancelledDate } : assignment
+      assignment.id === ppeAssignmentId ? { ...assignment, status, cancelledBy: changedBy, cancelledDate: changedDate } : assignment
     );
   }
 
