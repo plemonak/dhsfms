@@ -101,7 +101,8 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
   const [updatingPpeAssignmentId, setUpdatingPpeAssignmentId] = useState<number | null>(null);
   const [showInactivePpe, setShowInactivePpe] = useState(false);
   const [ppeToast, setPpeToast] = useState<string | null>(null);
-  const [pendingPpeStatusChange, setPendingPpeStatusChange] = useState<{ id: number; status: PpeAssignment['status'] } | null>(null);
+  const [pendingPpeStatusChange, setPendingPpeStatusChange] = useState<{ id: number; status: PpeAssignment['status']; category: string } | null>(null);
+  const [mandatoryReissueCategory, setMandatoryReissueCategory] = useState<string | null>(null);
   const [equipmentWorkflowOpen, setEquipmentWorkflowOpen] = useState(false);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<number | null>(null);
   const [equipmentIssueDate, setEquipmentIssueDate] = useState(new Date().toISOString().slice(0, 10));
@@ -310,13 +311,15 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
     void refreshPpeAssignments();
   }
 
-  async function applyPpeAssignmentStatus(id: number, status: PpeAssignment['status']) {
+  async function applyPpeAssignmentStatus(id: number, status: PpeAssignment['status'], category: string) {
     setUpdatingPpeAssignmentId(id);
     try {
       await dataProvider.updatePpeAssignmentStatus(id, status, currentUser.displayName);
       await refreshPpeAssignments();
       setPpeToast(`Το ΜΑΠ καταχωρήθηκε ως «${PPE_ASSIGNMENT_STATUS_LABELS[status]}».`);
       setTimeout(() => setPpeToast(null), 3000);
+      const isMandatory = mandatoryPpeOptions.some(o => normalizeText(o.category) === normalizeText(category));
+      if (isMandatory) setMandatoryReissueCategory(category);
     } finally {
       setUpdatingPpeAssignmentId(null);
     }
@@ -513,7 +516,7 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
                         disabled={updatingPpeAssignmentId === assignment.id}
                         onChange={e => {
                           const status = e.target.value as PpeAssignment['status'];
-                          if (status) setPendingPpeStatusChange({ id: assignment.id, status });
+                          if (status) setPendingPpeStatusChange({ id: assignment.id, status, category: assignment.ppeCategory });
                           e.target.value = '';
                         }}
                       >
@@ -702,8 +705,20 @@ export function EmployeeProfilePage({ employee, employees, sites, trainings, doc
         confirmLabel={pendingPpeStatusChange ? PPE_ASSIGNMENT_STATUS_LABELS[pendingPpeStatusChange.status] : 'Επιβεβαίωση'}
         onCancel={() => setPendingPpeStatusChange(null)}
         onConfirm={() => {
-          if (pendingPpeStatusChange) void applyPpeAssignmentStatus(pendingPpeStatusChange.id, pendingPpeStatusChange.status);
+          if (pendingPpeStatusChange) void applyPpeAssignmentStatus(pendingPpeStatusChange.id, pendingPpeStatusChange.status, pendingPpeStatusChange.category);
           setPendingPpeStatusChange(null);
+        }}
+      />
+      <ConfirmDialog
+        open={mandatoryReissueCategory !== null}
+        title="Υποχρεωτικό ΜΑΠ"
+        message={`Το «${mandatoryReissueCategory}» είναι υποχρεωτικό για την ειδικότητα και πρέπει να χρεωθεί νέο. Θέλετε να συνεχίσετε σε νέα χορήγηση;`}
+        confirmLabel="Ναι"
+        cancelLabel="Όχι"
+        onCancel={() => setMandatoryReissueCategory(null)}
+        onConfirm={() => {
+          setMandatoryReissueCategory(null);
+          setPpeWorkflowOpen(true);
         }}
       />
     </div>
